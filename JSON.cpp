@@ -22,7 +22,7 @@ JSON JSON::ToJson(SharedObject obj) {
     return JSON{ obj };
 }
 
-SharedObject& JSON::getObj() {
+SharedObject& JSON::content() {
     return obj;
 }
 
@@ -180,3 +180,15 @@ JSON::JSON(std::string_view content) {
     Tokenizer tk(ss);
     obj = parse(tk);
 }
+
+std::istream& operator >> (std::istream& in, JSON& obj) {
+    Tokenizer tk(in);
+    obj.obj = parse(tk);
+    return in;
+}
+
+std::ostream& operator << (std::ostream& out, const JSON& obj) {
+    out << obj.obj;
+    return out;
+}
+

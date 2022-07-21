@@ -12,5 +12,7 @@ class JSON {
         std::string ToString();
         static JSON Parse(std::string_view content);
         static JSON ToJson(SharedObject obj);
-        SharedObject& getObj();
+        SharedObject& content();
+        friend std::istream& operator >> (std::istream& in, JSON& obj);
+        friend std::ostream& operator << (std::ostream& out, const JSON& obj);
 };

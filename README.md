@@ -1,5 +1,6 @@
 简单的 C++ 反射库，思路参考 https://github.com/Ubpa/UDRefl
 
+并使用反射实现了简单的 JSON 库
 
 示例
 
@@ -57,4 +58,16 @@ void test2() {
     }
     std::cout << s << std::endl;
 }
+```
+
+JSON 库
+```C++
+ReflMgrTool::Init();
+
+JSON data("{a:{arr:[1,2,\"hello\"]}}");
+std::cout << data << std::endl;
+std::cout << data.content()[SharedObject::New<std::string>("a")] << std::endl;
+
+std::cin >> data;
+std::cout << data << std::endl;
 ```

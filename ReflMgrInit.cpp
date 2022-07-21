@@ -76,13 +76,13 @@ void printMap(std::stringstream& out, const std::map<T, V>& val) {
             print(out, iter->second);
             iter++;
         }
-    } else {
-        out << " ";
     }
     if (useIndent) {
         indent--;
-        out << std::endl;
-        printIndent(out);
+        if (val.size() > 0) {
+            out << std::endl;
+            printIndent(out);
+        }
     }
     out << "}";
 }

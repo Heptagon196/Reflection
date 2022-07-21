@@ -123,7 +123,15 @@ void test2() {
     std::cout << s << std::endl;
 }
 
+void JSONTest() {
+    ReflMgrTool::Init();
+    JSON data("{a:{arr:[1,2,\"hello\"]}}");
+    std::cout << data << std::endl;
+    std::cout << data.content()[SharedObject::New<std::string>("a")] << std::endl;
+    std::cin >> data;
+    std::cout << data << std::endl;
+}
+
 int main() {
-    test1();
-    test2();
+    JSONTest();
 }
