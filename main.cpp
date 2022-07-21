@@ -8,11 +8,18 @@
 struct Adder {
     int p = 123;
     void add(int a, int b) {
-        std::cout << a << " + " << b << " = " << a + b << std::endl;
+        std::cout << p << ": " << a << " + " << b << " = " << a + b << std::endl;
     }
 };
 
-struct P : public Adder {
+struct Test {
+    std::string val = "_test";
+    void test() {
+        std::cout << "test" << val << std::endl;
+    }
+};
+
+struct P : public Adder, public Test {
     int x;
     std::string s;
     P() {}
@@ -24,6 +31,25 @@ struct P : public Adder {
         std::cout << "Hello World!2" << std::endl;
     }
 };
+
+void inheritanceTest() {
+    ReflMgrTool::Init();
+    auto& mgr = ReflMgr::Instance();
+
+    mgr.AddClass<P>();
+    mgr.SetInheritance<P, Adder, Test>(); // 声明继承关系
+
+    mgr.AddMethod(&Adder::add, "add");
+    mgr.AddMethod(&Test::test, "test");
+    mgr.AddField(&Adder::p, "p");
+    mgr.AddField(&Test::val, "val");
+
+    auto instance = mgr.New<P>();
+    std::cout << instance.GetField("p") << std::endl;
+    std::cout << instance.GetField("val") << std::endl;
+    instance.Invoke("test");
+    instance.Invoke("add", { SharedObject::New<int>(1), SharedObject::New<int>(2) });
+}
 
 void selfTest() {
     ReflMgrTool::Init();
@@ -55,7 +81,7 @@ void overloadTest() {
     mgr.AddMethod(MethodType<void, P>::Type(&P::print), "print");
     auto p = SharedObject::New<P>();
     p.Invoke("print", { SharedObject::New<int>(123) });
-    p.Invoke("print", {});
+    p.Invoke("print");
     p.Invoke("print", { SharedObject::New<int>(123), SharedObject::New<int>(123) });
 }
 
@@ -75,7 +101,7 @@ void metaTest() {
     std::cout << s << std::endl;
 }
 
-struct Test {
+struct Test2 {
     int p = 123;
     void add(int a, int b) {
         std::cout << a << " + " << b << " = " << a + b << std::endl;
@@ -86,11 +112,11 @@ void test1() {
     ReflMgrTool::Init(); // 自动注册常用类型
 
     auto& mgr = ReflMgr::Instance();
-    mgr.AddClass<Test>();
-    mgr.AddField(&Test::p, "p");
-    mgr.AddMethod(&Test::add, "add");
+    mgr.AddClass<Test2>();
+    mgr.AddField(&Test2::p, "p");
+    mgr.AddMethod(&Test2::add, "add");
 
-    auto instance = mgr.New(TypeID::get<Test>());
+    auto instance = mgr.New(TypeID::get<Test2>());
     std::cout << instance.GetField("p") << std::endl;
     instance.Invoke("add", { SharedObject::New<int>(1), SharedObject::New<int>(2) });
 }
@@ -133,5 +159,5 @@ void JSONTest() {
 }
 
 int main() {
-    JSONTest();
+    inheritanceTest();
 }

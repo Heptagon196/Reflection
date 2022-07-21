@@ -57,8 +57,8 @@ class ObjectPtr {
         void* GetRawPtr() const;
         SharedObject ToSharedPtr() const;
         ObjectPtr GetField(std::string_view member) const;
-        SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params) const;
-        SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params) const;
+        SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
+        SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
         template<typename T> T& As() { return *(T*)ptr; }
         template<typename T> const T& Get() const { return *(T*)ptr; }
         friend class SharedObject;
@@ -97,8 +97,8 @@ class SharedObject {
         std::shared_ptr<void> GetPtr() const;
         void* GetRawPtr() const;
         ObjectPtr GetField(std::string_view member) const;
-        SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params) const;
-        SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params) const;
+        SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
+        SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
         template<typename T> T& As() { return *(T*)GetRawPtr(); }
         template<typename T> const T& Get() const { return *(T*)GetRawPtr(); }
         ObjectPtr ToObjectPtr() const;

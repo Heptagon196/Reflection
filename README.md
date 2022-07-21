@@ -60,6 +60,45 @@ void test2() {
 }
 ```
 
+继承
+```C++
+struct Adder {
+    int p = 123;
+    void add(int a, int b) {
+        std::cout << p << ": " << a << " + " << b << " = " << a + b << std::endl;
+    }
+};
+
+struct Test {
+    std::string val = "_test";
+    void test() {
+        std::cout << "test" << val << std::endl;
+    }
+};
+
+struct P : public Adder, public Test {};
+
+void inheritanceTest() {
+    ReflMgrTool::Init();
+    auto& mgr = ReflMgr::Instance();
+
+    mgr.AddClass<P>();
+    mgr.SetInheritance<P, Adder, Test>(); // 声明继承关系
+
+    mgr.AddMethod(&Adder::add, "add");
+    mgr.AddMethod(&Test::test, "test");
+    mgr.AddField(&Adder::p, "p");
+    mgr.AddField(&Test::val, "val");
+
+    auto instance = mgr.New<P>();
+    std::cout << instance.GetField("p") << std::endl;
+    std::cout << instance.GetField("val") << std::endl;
+    instance.Invoke("test");
+    instance.Invoke("add", { SharedObject::New<int>(1), SharedObject::New<int>(2) });
+}
+```
+
+
 JSON 库
 ```C++
 ReflMgrTool::Init();

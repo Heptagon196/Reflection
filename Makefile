@@ -7,7 +7,7 @@ ReflMgrInit.o: ReflMgrInit.cpp
 	$(CXX) -c ReflMgrInit.cpp
 JSON.o: JSON.cpp
 	$(CXX) -c JSON.cpp
-main.o: main.cpp
+main.o: main.cpp ReflMgr.h
 	$(CXX) -c main.cpp
 clean:
 	rm *.o

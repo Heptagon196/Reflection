@@ -52,6 +52,7 @@ struct FieldType {
 
 struct ClassInfo {
     std::vector<TypeID> parents;
+    std::vector<std::function<void*(void*)>> cast;
     TagList tags;
     std::function<SharedObject(const std::vector<ObjectPtr>&)> newObject = 0;
 };
@@ -109,33 +110,37 @@ class ReflMgr {
             }
             return nullptr;
         }
-        template<typename Ret> Ret* WalkThroughInherits(TypeID id, std::function<Ret*(TypeID)> func) {
-            std::queue<TypeID> q;
-            q.push(id);
+        template<typename Ret> Ret* WalkThroughInherits(void** instance, TypeID id, std::function<Ret*(TypeID)> func) {
+            std::queue<std::pair<TypeID, void*>> q;
+            q.push({id, instance == nullptr ? nullptr : *instance});
             while (!q.empty()) {
-                TypeID type = q.front();
+                auto [type, ptr] = q.front();
                 q.pop();
                 auto* ret = func(type);
                 if (ret != nullptr) {
+                    if (instance != nullptr) {
+                        *instance = ptr;
+                    }
                     return ret;
                 }
                 if (HasClassInfo(type)) {
-                    for (const auto& n : classInfo[type].parents) {
-                        q.push(n);
+                    ClassInfo& info = classInfo[type];
+                    for (int i = 0; i < info.parents.size(); i++) {
+                        q.push({info.parents[i], instance == nullptr ? nullptr : info.cast[i](ptr)});
                     }
                 }
             }
             return nullptr;
         }
-        const FieldInfo* SafeGetFieldWithInherit(TypeID id, std::string_view name, bool showError = true) {
-            auto ret = WalkThroughInherits(id, std::function([&](TypeID type) { return SafeGet(fieldInfo, type, name); }));
+        const FieldInfo* SafeGetFieldWithInherit(void** instance, TypeID id, std::string_view name, bool showError = true) {
+            auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(fieldInfo, type, name); }));
             if (ret == nullptr && showError) {
                 std::cerr << "Error: no matching field found: " << id.getName() << "::" << name << std::endl;
             }
             return ret;
         }
-        const MethodInfo* SafeGetMethodWithInherit(TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true) {
-            auto ret = WalkThroughInherits(id, std::function([&](TypeID type) { return SafeGet(type, name, args); }));
+        const MethodInfo* SafeGetMethodWithInherit(void** instance, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true) {
+            auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(type, name, args); }));
             if (ret == nullptr && showError) {
                 std::cerr << "Error: no matching method found: " << id.getName() << "::" << name << "(";
                 if (args.size() > 0) {
@@ -219,7 +224,7 @@ class ReflMgr {
             AddStaticField<T0>(type, args...);
         }
         ObjectPtr RawGetField(TypeID type, void* instance, std::string_view member) {
-            auto* p = SafeGetFieldWithInherit(type, member);
+            auto* p = SafeGetFieldWithInherit(&instance, type, member);
             if (p == nullptr) {
                 return ObjectPtr::Null;
             }
@@ -436,7 +441,7 @@ class ReflMgr {
             AddStaticMethod(type, func, info);
         }
         SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params) {
-            auto* info = SafeGetMethodWithInherit(type, member, list);
+            auto* info = SafeGetMethodWithInherit(&instance, type, member, list);
             if (info == nullptr || info->name == "") {
                 return SharedObject::Null;
             }
@@ -448,7 +453,8 @@ class ReflMgr {
             for (auto param : params) {
                 list.push_back(param.GetType());
             }
-            auto* info = SafeGetMethodWithInherit(instance.GetType(), method, list, showError);
+            void* ptr = instance.GetRawPtr();
+            auto* info = SafeGetMethodWithInherit(&ptr, instance.GetType(), method, list, showError);
             if (info == nullptr || info->name == "") {
                 return SharedObject::Null;
             }
@@ -456,7 +462,7 @@ class ReflMgr {
             for (int i = 0; i < info->argsList.size(); i++) {
                 p.push_back(params[i].GetRawPtr());
             }
-            return info->getRegister(instance.GetRawPtr(), p);
+            return info->getRegister(ptr, p);
         }
         template<typename T = ObjectPtr>
         SharedObject InvokeStatic(TypeID type, std::string_view method, const std::vector<T>& params, bool showError = true) {
@@ -464,7 +470,7 @@ class ReflMgr {
             for (auto param : params) {
                 list.push_back(param.GetType());
             }
-            auto* info = SafeGetMethodWithInherit(type, method, list, showError);
+            auto* info = SafeGetMethodWithInherit(nullptr, type, method, list, showError);
             if (info == nullptr) {
                 return SharedObject::Null;
             }
@@ -474,18 +480,18 @@ class ReflMgr {
             }
             return info->getRegister(nullptr, p);
         }
-        void SetInheritance(TypeID derived) {}
-        void SetInheritance(TypeID derived, TypeID base) {
-            classInfo[derived].parents.push_back(base);
-        }
-        template<typename T, typename U>
+        template<typename D, typename B>
         void SetInheritance() {
-            SetInheritance(TypeID::get<T>(), TypeID::get<U>());
+            ClassInfo& info = classInfo[TypeID::get<D>()];
+            info.parents.push_back(TypeID::get<B>());
+            info.cast.push_back([](void* derived) -> void* {
+                return (B*)((D*)derived);
+            });
         }
-        template<typename... Args>
-        void SetInheritance(TypeID derived, TypeID base, Args... args) {
-            SetInheritance(derived, base);
-            SetInheritance(derived, args...);
+        template<typename D, typename B, typename R, typename... Args>
+        void SetInheritance() {
+            SetInheritance<D, B>();
+            SetInheritance<D, R, Args...>();
         }
         template<typename T>
         void AddClass(TagList tagList) {
@@ -496,11 +502,6 @@ class ReflMgr {
                 return obj;
             };
             classInfo[type].tags = tagList;
-        }
-        template<typename T, typename P, typename... Args>
-        void AddClass(TagList tagList, P parent, Args... args) {
-            AddClass<T>(tagList);
-            SetInheritance(TypeID::get<T>(), parent, args...);
         }
         template<typename T>
         void AddClass() {
