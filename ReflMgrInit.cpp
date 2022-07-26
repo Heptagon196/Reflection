@@ -5,7 +5,7 @@
 #include "ReflMgrInit.h"
 
 template<typename T>
-void print(std::stringstream& out, const T& val) {
+static void print(std::stringstream& out, const T& val) {
     if constexpr (std::same_as<T, std::string> || std::same_as<T, std::string_view>) {
         out << '"' << val << '"';
     } else {
@@ -22,7 +22,7 @@ void print(std::stringstream& out, const T& val) {
 }
 
 template<typename T>
-void printVec(std::stringstream& out, const T& val) {
+static void printVec(std::stringstream& out, const T& val) {
     out << "[";
     if (val.size() > 0) {
         out << " ";
@@ -39,14 +39,14 @@ static bool useIndent = true;
 static int indentWidth = 2;
 static int indent = 0;
 
-void printIndent(std::stringstream& out) {
+static void printIndent(std::stringstream& out) {
     for (int i = 0; i < indent * indentWidth; i++) {
         out << " ";
     }
 }
 
 template<typename T, typename V>
-void printMap(std::stringstream& out, const std::map<T, V>& val) {
+static void printMap(std::stringstream& out, const std::map<T, V>& val) {
     out << "{";
     if (useIndent) {
         indent++;
@@ -91,7 +91,6 @@ namespace ReflMgrTool {
     void InitBaseTypes() {
         auto& mgr = ReflMgr::Instance();
 #define DEFTYPE(type)                                           \
-        mgr.AddClass<type>();                                   \
         ReflMgrTool::AutoRegister<type>();                      \
         DEFCTOR(type)                                           \
 
@@ -126,7 +125,6 @@ namespace ReflMgrTool {
 
 #define DEFVEC(type) DEFVEC_BASE(std::vector<type>, type)
 #define DEFVEC_BASE(type, elem)                                         \
-        mgr.AddClass<type>();                                           \
         ReflMgrTool::AutoRegister<type>();                              \
         AutoRegister<type::iterator>();                                 \
         DEFCTOR(type);                                                  \
@@ -135,10 +133,6 @@ namespace ReflMgrTool {
             printVec(ss, *self);                                        \
             return (std::string)(ss.str());                             \
         }, tostring)                                                    \
-        mgr.AddMethod(MethodType<void, type, const elem&>::Type(&type::push_back), "push_back");                        \
-        mgr.AddMethod(MethodType<elem&, type, size_t>::Type(&type::at), "at");                                          \
-        mgr.AddMethod(MethodType<elem&, type, size_t>::Type(&type::operator[]), MetaMethods::operator_index);           \
-        mgr.AddMethod(&type::pop_back, "pop_back");                                                                     \
 
         DEFVEC(ObjectPtr);
         DEFVEC(SharedObject);
@@ -147,20 +141,14 @@ namespace ReflMgrTool {
         DEFVEC(std::string);
         DEFVEC_BASE(std::string, char);
 
-        mgr.AddClass<std::string_view>();
         ReflMgrTool::AutoRegister<std::string_view>();
         ReflMgrTool::AutoRegister<std::string_view::iterator>();
 
 #define DEFMAP(key, value)                                                      \
         do {                                                                    \
             using type = std::map<key, value>;                                  \
-            mgr.AddClass<type>();                                               \
             AutoRegister<type>();                                               \
             AutoRegister<type::iterator>();                                     \
-            mgr.AddMethod(                                                      \
-                MethodType<value&, type, const key&>::Type(&type::operator[]),  \
-                MetaMethods::operator_index                                     \
-            );                                                                  \
             DEFSINGLE(type, {                                                   \
                 std::stringstream ss;                                           \
                 printMap(ss, *self);                                            \
@@ -204,7 +192,6 @@ namespace ReflMgrTool {
         mgr.AddMethod(&Obj::tostring, "tostring");                   \
         mgr.AddMethod(&Obj::ctor, "ctor");                           \
         mgr.AddMethod(&Obj::dtor, "dtor");                           \
-        mgr.AddMethod(&Obj::copy, "copy");                           \
 
         DEFOBJ(ObjectPtr);
         DEFOBJ(SharedObject);

@@ -26,7 +26,6 @@ class SharedObject;
     SharedObject tostring() const;                                              \
     void ctor(const std::vector<ObjectPtr>& args) const;                        \
     void dtor() const;                                                          \
-    SharedObject copy() const;                                                  \
     SharedObject begin();                                                       \
     SharedObject end();                                                         \
     SharedObject operator ++ (int);                                             \

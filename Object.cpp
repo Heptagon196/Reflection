@@ -142,9 +142,6 @@ ObjectPtr SharedObject::ToObjectPtr() const {
     void T::dtor() const {                                                                              \
         ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_dtor, {}, false);                   \
     }                                                                                                   \
-    SharedObject T::copy() const {                                                                      \
-        return ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_copy, {});                   \
-    }                                                                                                   \
     SharedObject T::begin() {                                                                           \
         return ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_begin, {});                  \
     }                                                                                                   \

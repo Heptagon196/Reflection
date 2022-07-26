@@ -1,11 +1,115 @@
 #include <sstream>
 #include "JSON.h"
 #include "ReflMgr.h"
+#include "MetaMethods.h"
+
+template<typename T>
+static void print(std::stringstream& out, const T& val) {
+    if constexpr (std::same_as<T, std::string> || std::same_as<T, std::string_view>) {
+        out << '"' << val << '"';
+    } else {
+        if constexpr (std::same_as<T, SharedObject> || std::same_as<T, ObjectPtr>) {
+            if (val.GetType() == TypeID::get<std::string>() || val.GetType() == TypeID::get<std::string_view>()) {
+                out << '"' << val << '"';
+            } else {
+                out << val;
+            }
+        } else {
+            out << val;
+        }
+    }
+}
+
+template<typename T>
+static void printVec(std::stringstream& out, T& val) {
+    out << "[";
+    if (val.size() > 0) {
+        out << " ";
+        print(out, val[0]);
+        for (int i = 1; i < val.size(); i++) {
+            out << ", ";
+            print(out, val[i].content());
+        }
+    }
+    out << " ]";
+}
+
+static bool useIndent = true;
+static int indentWidth = 2;
+static int indent = 0;
+
+static void printIndent(std::stringstream& out) {
+    for (int i = 0; i < indent * indentWidth; i++) {
+        out << " ";
+    }
+}
+
+template<typename T, typename V>
+static void printMap(std::stringstream& out, std::map<T, V>& val) {
+    out << "{";
+    if (useIndent) {
+        indent++;
+    }
+    if (val.size() > 0) {
+        auto iter = val.begin();
+        if (useIndent) {
+            out << std::endl;
+            printIndent(out);
+        } else {
+            out << " ";
+        }
+        print(out, iter->first);
+        out << ": ";
+        print(out, iter->second.content());
+        iter++;
+        while (iter != val.end()) {
+            out << ",";
+            if (useIndent) {
+                out << std::endl;
+                printIndent(out);
+            } else {
+                out << " ";
+            }
+            print(out, iter->first);
+            out << ": ";
+            print(out, iter->second.content());
+            iter++;
+        }
+    }
+    if (useIndent) {
+        indent--;
+        if (val.size() > 0) {
+            out << std::endl;
+            printIndent(out);
+        }
+    }
+    out << "}";
+}
+
+void JSON::Init() {
+    ReflMgr::Instance().AddMethod<JSON>(std::function([](JSON* self) -> std::string {
+        return self->obj.tostring().As<std::string>();
+    }), MetaMethods::operator_tostring);
+    ReflMgr::Instance().AddMethod<std::vector<JSON>>(std::function([](std::vector<JSON>* self) -> std::string {
+        std::stringstream ss;
+        printVec(ss, *self);
+        return ss.str();
+    }), MetaMethods::operator_tostring);
+    ReflMgr::Instance().AddMethod<std::map<std::string, JSON>>(std::function([](std::map<std::string, JSON>* self) -> std::string {
+        std::stringstream ss;
+        printMap(ss, *self);
+        return ss.str();
+    }), MetaMethods::operator_tostring);
+}
 
 JSON::JSON(SharedObject obj) : obj(obj) {}
 
 JSON::JSON() {
     obj = SharedObject{ TypeID::get<void>(), nullptr };
+}
+
+SharedObject& JSON::content() {
+    return obj;
 }
 
 std::string JSON::ToString() {
@@ -20,10 +124,6 @@ JSON JSON::Parse(std::string_view content) {
 
 JSON JSON::ToJson(SharedObject obj) {
     return JSON{ obj };
-}
-
-SharedObject& JSON::content() {
-    return obj;
 }
 
 struct Tokenizer {
@@ -64,6 +164,7 @@ struct Tokenizer {
         std::string content;
         content = ch;
         if (ch == '"') {
+            content = "";
             ch = getChar();
             while (ch != '"') {
                 if (ch == '\\') {
@@ -133,13 +234,13 @@ T ConvertTo(U orig) {
 SharedObject parse(Tokenizer& tk) {
     auto token = tk.getToken();
     if (token == Tokenizer::symbol('{')) {
-        auto obj = std::map<std::string, SharedObject>();
+        auto obj = std::map<std::string, JSON>();
         token = tk.getToken();
         while (token != Tokenizer::symbol('}')) {
             auto key = token.second;
             token = tk.getToken();
             tk.expectSymbol(token, ":");
-            obj[(std::string)key] = parse(tk);
+            obj[(std::string)key] = JSON{parse(tk)};
             token = tk.getToken();
             if (token != Tokenizer::symbol(',')) {
                 tk.expectSymbol(token, "}");
@@ -149,11 +250,11 @@ SharedObject parse(Tokenizer& tk) {
         }
         return SharedObject::New<decltype(obj)>(obj);
     } else if (token == Tokenizer::symbol('[')) {
-        auto vec = std::vector<SharedObject>();
+        auto vec = std::vector<JSON>();
         token = tk.getToken();
         while (token != Tokenizer::symbol(']')) {
             tk.backToken(token);
-            vec.push_back(parse(tk));
+            vec.push_back(JSON{parse(tk)});
             token = tk.getToken();
             if (token != Tokenizer::symbol(',')) {
                 tk.expectSymbol(token, "]");
@@ -192,3 +293,25 @@ std::ostream& operator << (std::ostream& out, const JSON& obj) {
     return out;
 }
 
+JSON& JSON::operator[] (std::string_view idx) {
+    return obj.As<std::map<std::string, JSON>>()[(std::string)idx];
+}
+
+JSON& JSON::operator[] (int idx) {
+    return obj.As<std::vector<JSON>>()[idx];
+}
+
+JSON& JSON::operator = (int value) {
+    obj = SharedObject::New<int>(value);
+    return *this;
+}
+
+JSON& JSON::operator = (std::string_view value) {
+    obj = SharedObject::New<std::string>((std::string)value);
+    return *this;
+}
+
+JSON& JSON::operator = (const JSON& other) {
+    obj = other.obj;
+    return *this;
+}

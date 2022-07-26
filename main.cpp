@@ -151,13 +151,17 @@ void test2() {
 
 void JSONTest() {
     ReflMgrTool::Init();
+    JSON::Init();
     JSON data("{a:{arr:[1,2,\"hello\"]}}");
+    data["a"]["arr"][0] = 10;
     std::cout << data << std::endl;
-    std::cout << data.content()[SharedObject::New<std::string>("a")] << std::endl;
+    std::cout << data["a"] << std::endl;
+    std::cout << data["a"]["arr"] << std::endl;
+    std::cout << data["a"]["arr"][1] << " " << data["a"]["arr"][2] << std::endl;
     std::cin >> data;
     std::cout << data << std::endl;
 }
 
 int main() {
-    inheritanceTest();
+    JSONTest();
 }

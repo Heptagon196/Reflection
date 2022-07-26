@@ -37,11 +37,24 @@ namespace MetaMethods {
     DEFOP(dec);
     template<typename T> concept has_operator_dec_pre = requires(T a) { --a; };
     template<typename T> concept has_operator_dec_post = requires(T a) { a--; };
-    DEFOP(copy); template<typename T> concept has_operator_copy = requires(T a, T b) { a = b.copy(); };
     DEFOP(tostring); template<typename T> concept has_operator_tostring = requires(T a, std::ostream b) { b << a; };
 #undef DEFMULTI
 #undef DEFDOUBLE
 #undef DEFSINGLE
 #undef DEFBIOP
 #undef DEFOP
+};
+
+namespace ContainerMethods {
+    template<typename T> concept has_value_type = requires() { typename T::value_type; };
+    template<typename T> concept has_key_type = requires() { typename T::key_type; };
+    template<typename T, typename U> concept has_push_back = requires(T self, U other) { self.push_back(other); };
+    template<typename T, typename U> concept has_push_front = requires(T self, U other) { self.push_front(other); };
+    template<typename T, typename U> concept has_push = requires(T self, U other) { self.push(other); };
+    template<typename T> concept has_pop_back = requires(T self) { self.pop_back(); };
+    template<typename T> concept has_pop_front = requires(T self) { self.pop_front(); };
+    template<typename T> concept has_pop = requires(T self) { self.pop(); };
+    template<typename T> concept has_size = requires(T self) { self.size(); };
+    template<typename T, typename U> concept has_at = requires(T self, U other) { self.at(other); };
+    template<typename T, typename U> concept has_find = requires(T self, U other) { self.find(other); };
 };
