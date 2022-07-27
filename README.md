@@ -104,7 +104,7 @@ JSON 库
 ReflMgrTool::Init();
 JSON::Init();
 JSON data("{a:{arr:[1,2,\"hello\"]}}");
-data["a"]["arr"][0] = 10;
+data["a"]["arr"][0] = "abc";
 std::cout << data << std::endl;
 std::cout << data["a"] << std::endl;
 std::cout << data["a"]["arr"] << std::endl;

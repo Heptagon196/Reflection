@@ -25,7 +25,7 @@ static void printVec(std::stringstream& out, T& val) {
     out << "[";
     if (val.size() > 0) {
         out << " ";
-        print(out, val[0]);
+        print(out, val[0].content());
         for (int i = 1; i < val.size(); i++) {
             out << ", ";
             print(out, val[i].content());
