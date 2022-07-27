@@ -152,8 +152,12 @@ void test2() {
 void JSONTest() {
     ReflMgrTool::Init();
     JSON::Init();
-    JSON data("{a:{arr:[1,2,\"hello\"]}}");
+    JSON data("{a:{arr:[1,2,\"hello\"]}, b:1, c:temp}");
     data["a"]["arr"][0] = "abc";
+    data.RemoveItem("b");
+    data.AddItem("d", JSON::NewMap());
+    data["d"].AddItem("1", JSON{"temp"});
+    data["a"]["arr"].AddItem(JSON{"test"});
     std::cout << data << std::endl;
     std::cout << data["a"] << std::endl;
     std::cout << data["a"]["arr"] << std::endl;

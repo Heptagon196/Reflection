@@ -86,6 +86,18 @@ static void printMap(std::stringstream& out, std::map<T, V>& val) {
     out << "}";
 }
 
+JSON JSON::NewMap() {
+    JSON ret;
+    ret.obj = SharedObject::New<std::map<std::string, JSON>>();
+    return ret;
+}
+
+JSON JSON::NewVec() {
+    JSON ret;
+    ret.obj = SharedObject::New<std::vector<JSON>>();
+    return ret;
+}
+
 void JSON::Init() {
     ReflMgr::Instance().AddMethod<JSON>(std::function([](JSON* self) -> std::string {
         return self->obj.tostring().As<std::string>();
@@ -314,4 +326,21 @@ JSON& JSON::operator = (std::string_view value) {
 JSON& JSON::operator = (const JSON& other) {
     obj = other.obj;
     return *this;
+}
+
+void JSON::AddItem(JSON item) {
+    obj.As<std::vector<JSON>>().push_back(item);
+}
+
+void JSON::AddItem(std::string key, JSON item) {
+    obj.As<std::map<std::string, JSON>>()[key] = item;
+}
+
+void JSON::RemoveItem(int pos) {
+    auto& vec = obj.As<std::vector<JSON>>();
+    vec.erase(vec.begin() + pos);
+}
+
+void JSON::RemoveItem(std::string key) {
+    obj.As<std::map<std::string, JSON>>().erase(key);
 }
