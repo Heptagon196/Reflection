@@ -152,7 +152,7 @@ void test2() {
 void JSONTest() {
     ReflMgrTool::Init();
     JSON::Init();
-    JSON data("{a:{arr:[1,2,\"hello\"]}, b:1, c:temp}");
+    JSON data("{a:{arr:[1,2,\"hell\\no\"]}, b:1, c:temp}");
     data["a"]["arr"][0] = "abc";
     data.RemoveItem("b");
     data.AddItem("d", JSON::NewMap());

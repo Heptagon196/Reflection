@@ -3,14 +3,32 @@
 #include "ReflMgr.h"
 #include "MetaMethods.h"
 
+static std::string codeString(std::string_view s) {
+    std::string ret = "";
+    for (auto ch : s) {
+        if (ch == '\n') {
+            ret += "\\n";
+        } else if (ch == '\r') {
+            ret += "\\r";
+        } else if (ch == '\t') {
+            ret += "\\t";
+        } else {
+            ret += ch;
+        }
+    }
+    return ret;
+}
+
 template<typename T>
 static void print(std::stringstream& out, const T& val) {
     if constexpr (std::same_as<T, std::string> || std::same_as<T, std::string_view>) {
         out << '"' << val << '"';
     } else {
         if constexpr (std::same_as<T, SharedObject> || std::same_as<T, ObjectPtr>) {
-            if (val.GetType() == TypeID::get<std::string>() || val.GetType() == TypeID::get<std::string_view>()) {
-                out << '"' << val << '"';
+            if (val.GetType() == TypeID::get<std::string>()) {
+                out << '"' << codeString(val.template Get<std::string>()) << '"';
+            } else if (val.GetType() == TypeID::get<std::string_view>()) {
+                out << '"' << codeString(val.template Get<std::string_view>()) << '"';
             } else {
                 out << val;
             }
