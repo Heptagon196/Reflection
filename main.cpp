@@ -166,6 +166,15 @@ void JSONTest() {
     std::cout << data << std::endl;
 }
 
+void numberTest() {
+    ReflMgr::Instance().AddStaticMethod(Namespace::Global.Type(), std::function(
+        [](int i, double f, int size) {
+            printf("%d %lf %d\n", i, f, size);
+        }
+    ), "print");
+    Namespace::Global.Invoke("print", { SharedObject::New<double>(12.123), SharedObject::New<int>(2), SharedObject::New<size_t>(3) });
+}
+
 int main() {
-    JSONTest();
+    numberTest();
 }

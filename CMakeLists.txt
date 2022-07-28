@@ -12,6 +12,7 @@ set(SOURCES
     JSON.cpp
     Object.cpp
     ReflMgrInit.cpp
+    TypeID.cpp
     main.cpp
 )
 

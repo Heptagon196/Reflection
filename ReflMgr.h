@@ -424,6 +424,19 @@ class ReflMgr {
                 std::make_index_sequence<Count<TypeList<Args...>>::count>()
             );
         }
+        template<typename T>
+        std::vector<void*> ConvertParams(const std::vector<T>& params, const MethodInfo& info, std::vector<std::shared_ptr<void>>& temp) {
+            std::vector<void*> ret;
+            for (int i = 0; i < info.argsList.size(); i++) {
+                if (info.argsList[i].getHash() != params[i].GetType().getHash()) {
+                    temp.push_back(params[i].GetType().implicitConvertInstance(params[i].GetRawPtr(), info.argsList[i]));
+                    ret.push_back(temp[temp.size() - 1].get());
+                    continue;
+                }
+                ret.push_back(params[i].GetRawPtr());
+            }
+            return ret;
+        }
     public:
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), MethodInfo info) {
@@ -458,11 +471,8 @@ class ReflMgr {
             if (info == nullptr || info->name == "") {
                 return SharedObject::Null;
             }
-            std::vector<void*> p;
-            for (int i = 0; i < info->argsList.size(); i++) {
-                p.push_back(params[i].GetRawPtr());
-            }
-            return info->getRegister(ptr, p);
+            std::vector<std::shared_ptr<void>> temp;
+            return info->getRegister(ptr, ConvertParams(params, *info, temp));
         }
         template<typename T = ObjectPtr>
         SharedObject InvokeStatic(TypeID type, std::string_view method, const std::vector<T>& params, bool showError = true) {
@@ -474,11 +484,8 @@ class ReflMgr {
             if (info == nullptr) {
                 return SharedObject::Null;
             }
-            std::vector<void*> p;
-            for (int i = 0; i < info->argsList.size(); i++) {
-                p.push_back(params[i].GetRawPtr());
-            }
-            return info->getRegister(nullptr, p);
+            std::vector<std::shared_ptr<void>> temp;
+            return info->getRegister(nullptr, ConvertParams(params, *info, temp));
         }
         template<typename D, typename B>
         void SetInheritance() {

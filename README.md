@@ -31,33 +31,31 @@ void test1() {
 
 
 ```C++
-void test2() {
-    ReflMgrTool::AutoRegister<int>(); // 自动注册元方法
-    ReflMgrTool::AutoRegister<std::vector<int>>();
-    ReflMgrTool::AutoRegister<std::vector<int>::iterator>();
+ReflMgrTool::AutoRegister<int>(); // 自动注册元方法
+ReflMgrTool::AutoRegister<std::vector<int>>();
+ReflMgrTool::AutoRegister<std::vector<int>::iterator>();
 
-    auto& mgr = ReflMgr::Instance();
-    mgr.AddMethod( // 手动注册元方法
-        std::function([](std::vector<int>* self) {
-            std::cout << '[' << (*self)[0];
-            for (int i = 1; i < self->size(); i++) {
-                std::cout << ", " << (*self)[i];
-            }
-            std::cout << ']';
-        }),
-        MetaMethods::operator_tostring
-    );
+auto& mgr = ReflMgr::Instance();
+mgr.AddMethod( // 手动注册元方法
+    std::function([](std::vector<int>* self) {
+        std::cout << '[' << (*self)[0];
+        for (int i = 1; i < self->size(); i++) {
+            std::cout << ", " << (*self)[i];
+        }
+        std::cout << ']';
+    }),
+    MetaMethods::operator_tostring
+);
 
-    SharedObject s = mgr.New<std::vector<int>>();
-    for (int i = 0; i < 5; i++) {
-        s.Invoke("push_back", { SharedObject::New<int>(i) });
-    }
-    SharedObject p = mgr.New<int>();
-    for (SharedObject i : s) {
-        std::cout << i << std::endl;
-    }
-    std::cout << s << std::endl;
+SharedObject s = mgr.New<std::vector<int>>();
+for (int i = 0; i < 5; i++) {
+    s.Invoke("push_back", { SharedObject::New<int>(i) });
 }
+SharedObject p = mgr.New<int>();
+for (SharedObject i : s) {
+    std::cout << i << std::endl;
+}
+std::cout << s << std::endl;
 ```
 
 继承
@@ -115,4 +113,14 @@ std::cout << data["a"]["arr"] << std::endl;
 std::cout << data["a"]["arr"][1] << " " << data["a"]["arr"][2] << std::endl;
 std::cin >> data;
 std::cout << data << std::endl;
+```
+
+数值类型隐式转换
+```C++
+ReflMgr::Instance().AddStaticMethod(Namespace::Global.Type(), std::function(
+    [](int i, double f, int size) {
+        printf("%d %lf %d\n", i, f, size);
+    }
+), "print");
+Namespace::Global.Invoke("print", { SharedObject::New<double>(12.123), SharedObject::New<int>(2), SharedObject::New<size_t>(3) });
 ```

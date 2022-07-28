@@ -1,7 +1,9 @@
 #pragma once
 #include <iostream>
-#include <string_view>
 #include <functional>
+#include <vector>
+#include <string_view>
+#include <memory>
 #include "TemplateUtils.h"
 
 class TypeID {
@@ -10,6 +12,7 @@ class TypeID {
         std::string_view name;
         bool is_ref;
         bool is_const;
+        static const std::vector<TypeID> implicitConvertList;
         static constexpr size_t calculateHash(std::string_view s) {
             size_t hash = sizeof(size_t) == 8 ? 0xcbf29ce484222325 : 0x811c9dc5;
             const size_t prime = sizeof(size_t) == 8 ? 0x00000100000001b3 : 0x01000193;
@@ -32,6 +35,21 @@ class TypeID {
             return cutString(__FUNCSIG__, 95, 7);
 #endif
         }
+        bool canImplicitlyConvertTo(const TypeID& other) const {
+            int cnt = 0;
+            for (const auto& type : TypeID::implicitConvertList) {
+                if (type.hash == this->hash) {
+                    cnt++;
+                }
+                if (type.hash == other.hash) {
+                    cnt++;
+                }
+            }
+            return cnt == 2;
+        }
+        bool checkRefAndConst(const TypeID& other) const {
+            return (is_ref == other.is_ref && is_const == other.is_const) || other.is_const || (other.is_ref && !is_const) || is_ref;
+        }
     public:
         TypeID() : hash(0) {}
         constexpr TypeID(std::string_view showName, std::string_view trueName, bool is_ref, bool is_const) : hash(calculateHash(trueName)), name(showName), is_ref(is_ref), is_const(is_const) {}
@@ -49,8 +67,9 @@ class TypeID {
             return name;
         }
         bool canBeAppliedTo(const TypeID& other) const {
-            return (*this == other) || ((hash == other.hash) && (other.is_const || (other.is_ref && !is_const) || is_ref));
+            return (checkRefAndConst(other) && (hash == other.hash || canImplicitlyConvertTo(other)));
         }
+        std::shared_ptr<void> implicitConvertInstance(void* instance, TypeID target);
         bool operator == (const TypeID& other) const {
             return hash == other.hash && is_ref == other.is_ref && is_const == other.is_const;
         }
