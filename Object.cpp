@@ -179,7 +179,7 @@ DEFOPS(ObjectPtr)
 #undef BIDEF
 
 std::ostream& operator << (std::ostream& out, const ObjectPtr& ptr) {
-    auto obj = ptr.TryInvoke(MetaMethods::operator_tostring, {});
+    auto obj = ptr.Invoke(MetaMethods::operator_tostring, {});
     if (obj.GetType() != TypeID::get<std::string>()) {
         return out;
     }
@@ -188,7 +188,7 @@ std::ostream& operator << (std::ostream& out, const ObjectPtr& ptr) {
 }
 
 std::ostream& operator << (std::ostream& out, const SharedObject& ptr) {
-    auto obj = ptr.TryInvoke(MetaMethods::operator_tostring, {});
+    auto obj = ptr.Invoke(MetaMethods::operator_tostring, {});
     if (obj.GetType() != TypeID::get<std::string>()) {
         return out;
     }
