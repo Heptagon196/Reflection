@@ -175,6 +175,30 @@ void numberTest() {
     Namespace::Global.Invoke("print", { SharedObject::New<double>(12.123), SharedObject::New<int>(2), SharedObject::New<size_t>(3) });
 }
 
+struct Info {
+    int x;
+    int y;
+    void print(int a) {
+        std::cout << "print1" << std::endl;
+    }
+    void print(int a, int b) {
+        std::cout << "print1" << std::endl;
+    }
+};
+
+void tagTest() {
+    ReflMgrTool::Init();
+    auto& mgr = ReflMgr::Instance();
+    mgr.AddClass<Info>();
+    mgr.AddField(&Info::x, {
+        .name = "x",
+        .tags = {
+            { "tag", { "0" }}
+        }
+    });
+    std::cout << mgr.GetFieldTag(TypeID::get<Info>(), "x").at("tag")[0] << std::endl;
+}
+
 int main() {
-    numberTest();
+    tagTest();
 }

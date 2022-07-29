@@ -9,18 +9,10 @@
 
 using TagList = std::map<std::string, std::vector<std::string>>;
 
-template<typename RegisterFuncType>
-struct RegisterTypeInfo {
+struct FieldInfo {
     std::string name;
     TagList tags;
-    std::function<RegisterFuncType> getRegister;
-    RegisterTypeInfo() {}
-    RegisterTypeInfo(std::string_view name): name(name) {}
-    RegisterTypeInfo(std::string_view name, TagList tags): name(name), tags(tags) {}
-};
-
-struct FieldInfo : RegisterTypeInfo<ObjectPtr(void*)> {
-    using RegisterTypeInfo::RegisterTypeInfo;
+    std::function<ObjectPtr(void*)> getRegister;
     FieldInfo& withRegister(std::function<ObjectPtr(void*)> getRegister) {
         this->getRegister = getRegister;
         return *this;
@@ -32,11 +24,14 @@ struct ArgsTypeList : std::vector<TypeID> {
     using std::vector<TypeID>::vector;
 };
 
-struct MethodInfo : RegisterTypeInfo<SharedObject(void*, const std::vector<void*>&)> {
+struct MethodInfo {
+    using FuncType = SharedObject(void*, const std::vector<void*>&);
+    std::string name;
+    TagList tags;
+    std::function<FuncType> getRegister;
     TypeID returnType;
     ArgsTypeList argsList;
-    using RegisterTypeInfo::RegisterTypeInfo;
-    MethodInfo& withRegister(std::function<SharedObject(void*, const std::vector<void*>&)> getRegister) {
+    MethodInfo& withRegister(std::function<FuncType> getRegister) {
         this->getRegister = getRegister;
         return *this;
     }
@@ -47,7 +42,7 @@ struct FieldType {
     T type;
     FieldInfo info;
     FieldType(T type, FieldInfo info) : type(type), info(info) {}
-    FieldType(T type, std::string_view name) : type(type), info(FieldInfo(name)) {}
+    FieldType(T type, std::string_view name) : type(type), info({std::string{name}}) {}
 };
 
 struct ClassInfo {
@@ -82,10 +77,10 @@ class ReflMgr {
             if (list == nullptr) {
                 return nullptr;
             }
-            if (list->find((std::string)name) == list->end()) {
+            if (list->find(std::string{name}) == list->end()) {
                 return nullptr;
             }
-            return &(*list)[(std::string)name];
+            return &(*list)[std::string{name}];
         }
         bool CheckParams(MethodInfo info, const ArgsTypeList& list) {
             if (info.argsList.size() != list.size()) {
@@ -189,7 +184,7 @@ class ReflMgr {
         }
         template<typename T, typename U>
         void AddField(U T::* type, std::string_view name) {
-            FieldInfo info{ name };
+            FieldInfo info{ std::string{name} };
             AddField(type, info);
         }
         template<typename T, typename U>
@@ -203,13 +198,13 @@ class ReflMgr {
         }
         template<typename T>
         void AddStaticField(TypeID type, T* ptr, FieldInfo info) {
-            fieldInfo[type][(std::string)info.name] = info.withRegister([ptr](void*) -> SharedObject {
+            fieldInfo[type][std::string{info.name}] = info.withRegister([ptr](void*) -> SharedObject {
                 return SharedObject{ TypeID::get<T>(), (void*)ptr };
             });
         }
         template<typename T>
         void AddStaticField(TypeID type, T* ptr, std::string_view name) {
-            FieldInfo info{ name };
+            FieldInfo info{ std::string{name} };
             AddStaticField(type, ptr, info);
         }
         template<typename T>
@@ -284,7 +279,7 @@ class ReflMgr {
         void AddMethod(Ret (Type::* func)(Args...) end, MethodInfo info) {                                                      \
             info.returnType = TypeID::get<Ret>();                                                                               \
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};                                                               \
-            methodInfo[TypeID::get<Type>()][(std::string)info.name].push_back(                                                  \
+            methodInfo[TypeID::get<Type>()][info.name].push_back(                                                               \
                 info.withRegister(                                                                                              \
                     GetMethodRegisterFunc(func)                                                                                 \
                 )                                                                                                               \
@@ -292,14 +287,14 @@ class ReflMgr {
         }                                                                                                                       \
         template<typename Ret, typename Type, typename... Args>                                                                 \
         void AddMethod(Ret (Type::* func)(Args...) end, std::string_view name) {                                                \
-            MethodInfo info{ name };                                                                                            \
+            MethodInfo info{ std::string{name} };                                                                               \
             AddMethod(func, info);                                                                                              \
         }
         template<typename Type, typename Ret, typename... Args>
         void AddMethod(std::function<Ret(Type*, Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[TypeID::get<Type>()][(std::string)info.name].push_back(
+            methodInfo[TypeID::get<Type>()][info.name].push_back(
                 info.withRegister(GetLambdaRegisterFunc(func))
             );
         }
@@ -307,18 +302,18 @@ class ReflMgr {
         void AddStaticMethod(TypeID type, std::function<Ret(Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[type][(std::string)info.name].push_back(
+            methodInfo[type][std::string{info.name}].push_back(
                 info.withRegister(GetLambdaRegisterStaticFunc(func))
             );
         }
         template<typename Type, typename Ret, typename... Args>
         void AddMethod(std::function<Ret(Type*, Args...)> func, std::string_view name) {
-            MethodInfo info{ name };
+            MethodInfo info{ std::string{name} };
             AddMethod(func, info);
         }
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, std::function<Ret(Args...)> func, std::string_view name) {
-            MethodInfo info{ name };
+            MethodInfo info{ std::string{name} };
             AddStaticMethod(type, func, info);
         }
         DEF_METHOD_REG()
@@ -442,7 +437,7 @@ class ReflMgr {
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[type][(std::string)info.name].push_back(
+            methodInfo[type][std::string{info.name}].push_back(
                 info.withRegister(
                     GetStaticMethodRegisterFunc(std::forward<decltype(func)>(func))
                 )
@@ -450,7 +445,7 @@ class ReflMgr {
         }
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), std::string_view name) {
-            MethodInfo info{ name };
+            MethodInfo info{ std::string{name} };
             AddStaticMethod(type, func, info);
         }
         SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params) {
@@ -514,25 +509,42 @@ class ReflMgr {
         void AddClass() {
             AddClass<T>({});
         }
-
+        const TagList& GetClassTag(TypeID cls) {
+            return classInfo[cls].tags;
+        }
+        const TagList& GetFieldTag(TypeID cls, std::string_view name) {
+            return fieldInfo[cls][std::string{name}].tags;
+        }
+        const TagList& GetMethodInfo(TypeID cls, std::string_view name) {
+            return methodInfo[cls][std::string{name}][0].tags;
+        }
+        const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
+            auto& infos = methodInfo[cls][std::string{name}];
+            for (auto& info : infos) {
+                if (CheckParams(info, args)) {
+                    return info.tags;
+                }
+            }
+            return infos[0].tags;
+        }
     private:
         // functions to be exported
         void ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
-            FieldInfo info{ name };
-            fieldInfo[cls][(std::string)name] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
+            FieldInfo info{ std::string{name} };
+            fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
         }
         void ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
-            FieldInfo info{ name };
-            fieldInfo[cls][(std::string)name] = info.withRegister([func, cls](void* ptr) { return func(); });
+            FieldInfo info{ std::string{name} };
+            fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(); });
         }
         ObjectPtr ExportGetField(ObjectPtr instance, std::string_view name) {
             return RawGetField(instance.GetType(), instance.GetRawPtr(), name);
         }
         void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func) {
-            MethodInfo info{ name };
+            MethodInfo info{ std::string{name} };
             info.returnType = returnType;
             info.argsList = argsList;
-            methodInfo[cls][(std::string)name].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+            methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
                 std::vector<ObjectPtr> args;
                 for (int i = 0; i < params.size(); i++) {
                     args.push_back(ObjectPtr{argsList[i], params[i]});
@@ -550,10 +562,10 @@ class ReflMgr {
             return RawInvoke(instance.GetType(), instance.GetRawPtr(), name, list, args);
         }
         void ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
-            MethodInfo info{ name };
+            MethodInfo info{ std::string{name} };
             info.returnType = returnType;
             info.argsList = argsList;
-            methodInfo[cls][(std::string)name].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+            methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
                 std::vector<ObjectPtr> args;
                 for (int i = 0; i < params.size(); i++) {
                     args.push_back(ObjectPtr{argsList[i], params[i]});
