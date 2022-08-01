@@ -38,23 +38,24 @@ static void print(std::stringstream& out, const T& val) {
     }
 }
 
+static bool useIndent = true;
+static int indentWidth = 4;
+static int indent = 0;
+
 template<typename T>
 static void printVec(std::stringstream& out, T& val) {
     out << "[";
+    indent++;
     if (val.size() > 0) {
-        out << " ";
         print(out, val[0].content());
         for (int i = 1; i < val.size(); i++) {
             out << ", ";
             print(out, val[i].content());
         }
     }
-    out << " ]";
+    indent--;
+    out << "]";
 }
-
-static bool useIndent = true;
-static int indentWidth = 2;
-static int indent = 0;
 
 static void printIndent(std::stringstream& out) {
     for (int i = 0; i < indent * indentWidth; i++) {

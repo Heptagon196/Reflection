@@ -200,5 +200,9 @@ void tagTest() {
 }
 
 int main() {
-    tagTest();
+    ReflMgrTool::Init();
+    JSON::Init();
+    JSON data;
+    std::cin >> data;
+    std::cout << data << std::endl;
 }
