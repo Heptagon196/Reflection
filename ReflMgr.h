@@ -155,10 +155,7 @@ class ReflMgr {
         ReflMgr(const ReflMgr&) = delete;
         ReflMgr(ReflMgr&&) = delete;
         ReflMgr(ReflMgr&) = delete;
-        static ReflMgr& Instance() {
-            static ReflMgr instance;
-            return instance;
-        }
+        static ReflMgr& Instance();
         SharedObject New(TypeID type, const std::vector<ObjectPtr>& args) {
             auto& func = classInfo[type].newObject;
             if (func == 0) {
@@ -173,6 +170,12 @@ class ReflMgr {
         }
         SharedObject New(TypeID type) {
             return New(type, {});
+        }
+        SharedObject New(std::string_view typeName) {
+            return New(TypeID::getRaw(typeName), {});
+        }
+        SharedObject New(std::string_view typeName, const std::vector<ObjectPtr>& args) {
+            return New(TypeID::getRaw(typeName), args);
         }
         template<typename T>
         SharedObject New() {
@@ -496,7 +499,7 @@ class ReflMgr {
             SetInheritance<D, R, Args...>();
         }
         template<typename T>
-        void AddClass(TagList tagList) {
+        void AddClass(TagList tagList = {}) {
             auto type = TypeID::get<T>();
             classInfo[type].newObject = [](const std::vector<ObjectPtr>& args) -> SharedObject {
                 auto obj = SharedObject{TypeID::get<T>(), std::make_shared<T>(), false};
@@ -505,9 +508,10 @@ class ReflMgr {
             };
             classInfo[type].tags = tagList;
         }
-        template<typename T>
-        void AddClass() {
-            AddClass<T>({});
+        void AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList = {}) {
+            auto type = TypeID::getRaw(cls);
+            classInfo[type].newObject = ctor;
+            classInfo[type].tags = tagList;
         }
         const TagList& GetClassTag(TypeID cls) {
             return classInfo[cls].tags;

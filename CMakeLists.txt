@@ -13,6 +13,7 @@ set(SOURCES
     Object.cpp
     ReflMgrInit.cpp
     TypeID.cpp
+    ReflMgr.cpp
     main.cpp
 )
 
