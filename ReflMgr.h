@@ -13,10 +13,7 @@ struct FieldInfo {
     std::string name;
     TagList tags;
     std::function<ObjectPtr(void*)> getRegister;
-    FieldInfo& withRegister(std::function<ObjectPtr(void*)> getRegister) {
-        this->getRegister = getRegister;
-        return *this;
-    }
+    FieldInfo& withRegister(std::function<ObjectPtr(void*)> getRegister);
 };
 
 struct ArgsTypeList : std::vector<TypeID> {
@@ -31,10 +28,7 @@ struct MethodInfo {
     std::function<FuncType> getRegister;
     TypeID returnType;
     ArgsTypeList argsList;
-    MethodInfo& withRegister(std::function<FuncType> getRegister) {
-        this->getRegister = getRegister;
-        return *this;
-    }
+    MethodInfo& withRegister(std::function<FuncType> getRegister);
 };
 
 template<typename T>
@@ -46,6 +40,7 @@ struct FieldType {
 };
 
 struct ClassInfo {
+    TypeID aliasTo;
     std::vector<TypeID> parents;
     std::vector<std::function<void*(void*)>> cast;
     TagList tags;
@@ -64,122 +59,24 @@ class ReflMgr {
                 return ObjectPtr{ TypeID::get<T>(), (void*)&((U*)(instance)->*p) };
             };
         }
-        template<typename T>
-        T* SafeGetList(std::map<TypeID, T>& info, TypeID id) {
-            if (info.find(id) == info.end()) {
-                return nullptr;
-            }
-            return &info[id];
-        }
-        template<typename T>
-        T* SafeGet(std::map<TypeID, std::map<std::string, T>>& info, TypeID id, std::string_view name) {
-            auto* list = SafeGetList(info, id);
-            if (list == nullptr) {
-                return nullptr;
-            }
-            if (list->find(std::string{name}) == list->end()) {
-                return nullptr;
-            }
-            return &(*list)[std::string{name}];
-        }
-        bool CheckParams(MethodInfo info, const ArgsTypeList& list) {
-            if (info.argsList.size() != list.size()) {
-                return false;
-            }
-            for (int i = 0; i < info.argsList.size(); i++) {
-                if (!list[i].canBeAppliedTo(info.argsList[i])) {
-                    return false;
-                }
-            }
-            return true;
-        }
-        const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args) {
-            auto* list = SafeGet(methodInfo, id, name);
-            if (list == nullptr) {
-                return nullptr;
-            }
-            for (const auto& info : *list) {
-                if (CheckParams(info, args)) {
-                    return &info;
-                }
-            }
-            return nullptr;
-        }
-        template<typename Ret> Ret* WalkThroughInherits(void** instance, TypeID id, std::function<Ret*(TypeID)> func) {
-            std::queue<std::pair<TypeID, void*>> q;
-            q.push({id, instance == nullptr ? nullptr : *instance});
-            while (!q.empty()) {
-                auto [type, ptr] = q.front();
-                q.pop();
-                auto* ret = func(type);
-                if (ret != nullptr) {
-                    if (instance != nullptr) {
-                        *instance = ptr;
-                    }
-                    return ret;
-                }
-                if (HasClassInfo(type)) {
-                    ClassInfo& info = classInfo[type];
-                    for (int i = 0; i < info.parents.size(); i++) {
-                        q.push({info.parents[i], instance == nullptr ? nullptr : info.cast[i](ptr)});
-                    }
-                }
-            }
-            return nullptr;
-        }
-        const FieldInfo* SafeGetFieldWithInherit(void** instance, TypeID id, std::string_view name, bool showError = true) {
-            auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(fieldInfo, type, name); }));
-            if (ret == nullptr && showError) {
-                std::cerr << "Error: no matching field found: " << id.getName() << "::" << name << std::endl;
-            }
-            return ret;
-        }
-        const MethodInfo* SafeGetMethodWithInherit(void** instance, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true) {
-            auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(type, name, args); }));
-            if (ret == nullptr && showError) {
-                std::cerr << "Error: no matching method found: " << id.getName() << "::" << name << "(";
-                if (args.size() > 0) {
-                    std::cerr << args[0].getName();
-                    for (int i = 1; i < args.size(); i++) {
-                        std::cerr << ", " << args[i].getName();
-                    }
-                }
-                std::cerr << ")" << std::endl;
-            }
-            return ret;
-        }
-        bool HasClassInfo(TypeID type) {
-            return classInfo.find(type) != classInfo.end();
-        }
+        template<typename T> T* SafeGetList(std::map<TypeID, T>& info, TypeID id);
+        template<typename T> T* SafeGet(std::map<TypeID, std::map<std::string, T>>& info, TypeID id, std::string_view name);
+        bool CheckParams(MethodInfo info, const ArgsTypeList& list);
+        const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args);
+        template<typename Ret> Ret* WalkThroughInherits(void** instance, TypeID id, std::function<Ret*(TypeID)> func);
+        const FieldInfo* SafeGetFieldWithInherit(void** instance, TypeID id, std::string_view name, bool showError = true);
+        const MethodInfo* SafeGetMethodWithInherit(void** instance, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true);
+        bool HasClassInfo(TypeID type);
     public:
         ReflMgr(const ReflMgr&) = delete;
         ReflMgr(ReflMgr&&) = delete;
         ReflMgr(ReflMgr&) = delete;
         static ReflMgr& Instance();
-        SharedObject New(TypeID type, const std::vector<ObjectPtr>& args) {
-            auto& func = classInfo[type].newObject;
-            if (func == 0) {
-                std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
-                return SharedObject::Null;
-            }
-            return func(args);
-        }
+        SharedObject New(TypeID type, const std::vector<ObjectPtr>& args = {});
+        SharedObject New(std::string_view typeName, const std::vector<ObjectPtr>& args = {});
         template<typename T>
-        SharedObject New(const std::vector<ObjectPtr>& args) {
+        SharedObject New(const std::vector<ObjectPtr>& args = {}) {
             return New(TypeID::get<T>(), args);
-        }
-        SharedObject New(TypeID type) {
-            return New(type, {});
-        }
-        SharedObject New(std::string_view typeName) {
-            return New(TypeID::getRaw(typeName), {});
-        }
-        SharedObject New(std::string_view typeName, const std::vector<ObjectPtr>& args) {
-            return New(TypeID::getRaw(typeName), args);
-        }
-        template<typename T>
-        SharedObject New() {
-            return New(TypeID::get<T>());
         }
         template<typename T, typename U>
         void AddField(U T::* type, FieldInfo info) {
@@ -221,13 +118,7 @@ class ReflMgr {
             AddStaticField<T0>(type, info.type, info.info);
             AddStaticField<T0>(type, args...);
         }
-        ObjectPtr RawGetField(TypeID type, void* instance, std::string_view member) {
-            auto* p = SafeGetFieldWithInherit(&instance, type, member);
-            if (p == nullptr) {
-                return ObjectPtr::Null;
-            }
-            return p->getRegister(instance);
-        }
+        ObjectPtr RawGetField(TypeID type, void* instance, std::string_view member);
         template<typename T>
         ObjectPtr GetField(T instance, std::string_view member) {
             return RawGetField(instance.GetType(), instance.GetRawPtr(), member);
@@ -451,13 +342,7 @@ class ReflMgr {
             MethodInfo info{ std::string{name} };
             AddStaticMethod(type, func, info);
         }
-        SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params) {
-            auto* info = SafeGetMethodWithInherit(&instance, type, member, list);
-            if (info == nullptr || info->name == "") {
-                return SharedObject::Null;
-            }
-            return info->getRegister(instance, params);
-        }
+        SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params);
         template<typename T = ObjectPtr, typename U>
         SharedObject Invoke(U instance, std::string_view method, const std::vector<T>& params, bool showError = true) {
             ArgsTypeList list;
@@ -508,88 +393,20 @@ class ReflMgr {
             };
             classInfo[type].tags = tagList;
         }
-        void AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList = {}) {
-            auto type = TypeID::getRaw(cls);
-            classInfo[type].newObject = ctor;
-            classInfo[type].tags = tagList;
-        }
-        const TagList& GetClassTag(TypeID cls) {
-            return classInfo[cls].tags;
-        }
-        const TagList& GetFieldTag(TypeID cls, std::string_view name) {
-            return fieldInfo[cls][std::string{name}].tags;
-        }
-        const TagList& GetMethodInfo(TypeID cls, std::string_view name) {
-            return methodInfo[cls][std::string{name}][0].tags;
-        }
-        const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
-            auto& infos = methodInfo[cls][std::string{name}];
-            for (auto& info : infos) {
-                if (CheckParams(info, args)) {
-                    return info.tags;
-                }
-            }
-            return infos[0].tags;
-        }
+        void AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList = {});
+        const TagList& GetClassTag(TypeID cls);
+        const TagList& GetFieldTag(TypeID cls, std::string_view name);
+        const TagList& GetMethodInfo(TypeID cls, std::string_view name);
+        const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
     private:
         // functions to be exported
-        void ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
-            FieldInfo info{ std::string{name} };
-            fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
-        }
-        void ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
-            FieldInfo info{ std::string{name} };
-            fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(); });
-        }
-        ObjectPtr ExportGetField(ObjectPtr instance, std::string_view name) {
-            return RawGetField(instance.GetType(), instance.GetRawPtr(), name);
-        }
-        void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func) {
-            MethodInfo info{ std::string{name} };
-            info.returnType = returnType;
-            info.argsList = argsList;
-            methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
-                std::vector<ObjectPtr> args;
-                for (int i = 0; i < params.size(); i++) {
-                    args.push_back(ObjectPtr{argsList[i], params[i]});
-                }
-                return func(ObjectPtr{returnType, instance}, args);
-            }));
-        }
-        SharedObject ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params) {
-            ArgsTypeList list;
-            std::vector<void*> args;
-            for (auto param : params) {
-                args.push_back(param.GetRawPtr());
-                list.push_back(param.GetType());
-            }
-            return RawInvoke(instance.GetType(), instance.GetRawPtr(), name, list, args);
-        }
-        void ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
-            MethodInfo info{ std::string{name} };
-            info.returnType = returnType;
-            info.argsList = argsList;
-            methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
-                std::vector<ObjectPtr> args;
-                for (int i = 0; i < params.size(); i++) {
-                    args.push_back(ObjectPtr{argsList[i], params[i]});
-                }
-                return func(args);
-            }));
-        }
-        SharedObject ExportInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params) {
-            return InvokeStatic(type, name, params);
-        }
+        void ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
+        void ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func);
+        ObjectPtr ExportGetField(ObjectPtr instance, std::string_view name);
+        void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
+        SharedObject ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params);
+        void ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func);
+        SharedObject ExportInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params);
     public:
-        void SelfExport() {
-            auto& mgr = Instance();
-            mgr.AddStaticMethod(TypeID::get<ReflMgr>(), &ReflMgr::Instance, "Instance");
-            mgr.AddMethod(&ReflMgr::ExportAddField, "AddField");
-            mgr.AddMethod(&ReflMgr::ExportAddStaticField, "AddStaticField");
-            mgr.AddMethod(&ReflMgr::ExportGetField, "GetField");
-            mgr.AddMethod(&ReflMgr::RawAddMethod, "AddMethod");
-            mgr.AddMethod(&ReflMgr::ExportInvoke, "Invoke");
-            mgr.AddMethod(&ReflMgr::ExportAddStaticMethod, "AddStaticMethod");
-            mgr.AddMethod(&ReflMgr::ExportInvokeStatic, "InvokeStatic");
-        }
+        void SelfExport();
 };

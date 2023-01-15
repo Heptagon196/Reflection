@@ -35,23 +35,11 @@ class TypeID {
             return cutString(__FUNCSIG__, 95, 7);
 #endif
         }
-        bool canImplicitlyConvertTo(const TypeID& other) const {
-            int cnt = 0;
-            for (const auto& type : TypeID::implicitConvertList) {
-                if (type.hash == this->hash) {
-                    cnt++;
-                }
-                if (type.hash == other.hash) {
-                    cnt++;
-                }
-            }
-            return cnt == 2;
-        }
-        bool checkRefAndConst(const TypeID& other) const {
-            return (is_ref == other.is_ref && is_const == other.is_const) || other.is_const || (other.is_ref && !is_const) || is_ref;
-        }
+        bool canImplicitlyConvertTo(const TypeID& other) const;
+        bool checkRefAndConst(const TypeID& other) const;
     public:
         TypeID() : hash(0) {}
+        bool isNull() const;
         constexpr TypeID(std::string_view showName, std::string_view trueName, bool is_ref, bool is_const) : hash(calculateHash(trueName)), name(showName), is_ref(is_ref), is_const(is_const) {}
         template<typename T>
         static constexpr TypeID get() {
@@ -60,23 +48,11 @@ class TypeID {
         static constexpr TypeID getRaw(std::string_view name) {
             return TypeID(name, name, false, false);
         }
-        size_t getHash() const {
-            return hash;
-        }
-        std::string_view getName() const {
-            return name;
-        }
-        bool canBeAppliedTo(const TypeID& other) const {
-            return (checkRefAndConst(other) && (hash == other.hash || canImplicitlyConvertTo(other)));
-        }
+        size_t getHash() const;
+        std::string_view getName() const;
+        bool canBeAppliedTo(const TypeID& other) const;
         std::shared_ptr<void> implicitConvertInstance(void* instance, TypeID target);
-        bool operator == (const TypeID& other) const {
-            return hash == other.hash && is_ref == other.is_ref && is_const == other.is_const;
-        }
-        bool operator != (const TypeID& other) const {
-            return !(*this == other);
-        }
-        bool operator < (const TypeID& other) const {
-            return hash < other.hash;
-        }
+        bool operator == (const TypeID& other) const;
+        bool operator != (const TypeID& other) const;
+        bool operator < (const TypeID& other) const;
 };
