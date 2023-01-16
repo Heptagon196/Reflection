@@ -75,7 +75,6 @@ class SharedObject {
         TypeID id;
         std::shared_ptr<void> ptr;
         void* objPtr;
-        bool needDestruct = false;
     public:
         template<typename T, typename... Args>
         static SharedObject New(Args&&... args) {

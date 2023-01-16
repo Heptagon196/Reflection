@@ -67,7 +67,6 @@ SharedObject::SharedObject(TypeID id, std::shared_ptr<void> ptr, bool call_ctor)
     if (id == TypeID::get<void>()) {
         return;
     }
-    needDestruct = true;
     if (call_ctor) {
         ctor({});
     }
@@ -197,7 +196,7 @@ std::ostream& operator << (std::ostream& out, const SharedObject& ptr) {
 }
 
 SharedObject::~SharedObject() {
-    if (id == TypeID::get<void>() || !needDestruct) {
+    if (id == TypeID::get<void>() || ptr.use_count() != 1) {
         return;
     }
     dtor();
