@@ -53,12 +53,13 @@ void inheritanceTest() {
 
 void selfTest() {
     ReflMgrTool::Init();
+    ReflMgrTool::AutoRegister<IncompleteType>();
     auto mgr = ReflMgr::Instance().InvokeStatic(TypeID::get<ReflMgr>(), "Instance", {});
     mgr.Invoke("AddMethod", {
         SharedObject::New<TypeID>(TypeID::get<P>()),
         SharedObject::New<std::string_view>("print"),
-        SharedObject::New<TypeID>(TypeID::get<void>()),
-        SharedObject::New<ArgsTypeList>(),
+        SharedObject::New<IncompleteType>(TypeID::get<void>()),
+        SharedObject::New<std::vector<IncompleteType>>(),
         SharedObject::New(
             std::function([](ObjectPtr instance, const std::vector<ObjectPtr>& params) -> SharedObject {
                 instance.As<P>().print();
@@ -71,8 +72,9 @@ void selfTest() {
         SharedObject::New<ObjectPtr>(TypeID::get<P>(), p.GetRawPtr()),
         SharedObject::New<std::string_view>("print"),
         SharedObject::New<std::vector<ObjectPtr>>(),
+        SharedObject::New<ArgsTypeList>(),
     });
-    SharedObject::New<ObjectPtr>(p.ToObjectPtr()).Invoke("Invoke", { SharedObject::New<std::string_view>("print"), SharedObject::New<std::vector<ObjectPtr>>() });
+    SharedObject::New<ObjectPtr>(p).Invoke("Invoke", { SharedObject::New<std::string_view>("print"), SharedObject::New<std::vector<ObjectPtr>>() });
 }
 
 void overloadTest() {

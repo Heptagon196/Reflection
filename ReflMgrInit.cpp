@@ -10,7 +10,7 @@ static void print(std::stringstream& out, const T& val) {
         out << '"' << val << '"';
     } else {
         if constexpr (std::same_as<T, SharedObject> || std::same_as<T, ObjectPtr>) {
-            if (val.GetType() == TypeID::get<std::string>() || val.GetType() == TypeID::get<std::string_view>()) {
+            if (val.GetType().base == TypeID::get<std::string>() || val.GetType().base == TypeID::get<std::string_view>()) {
                 out << '"' << val << '"';
             } else {
                 out << val;

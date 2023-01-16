@@ -1,15 +1,5 @@
 #include "ReflMgr.h"
 
-FieldInfo& FieldInfo::withRegister(std::function<ObjectPtr(void*)> getRegister) {
-    this->getRegister = getRegister;
-    return *this;
-}
-
-MethodInfo& MethodInfo::withRegister(std::function<FuncType> getRegister) {
-    this->getRegister = getRegister;
-    return *this;
-}
-
 ReflMgr& ReflMgr::Instance() {
     static ReflMgr instance;
     return instance;
@@ -40,33 +30,33 @@ template<typename T> T* ReflMgr::SafeGet(std::map<TypeID, std::map<std::string, 
 template std::vector<MethodInfo>* ReflMgr::SafeGet(std::map<TypeID, std::map<std::string, std::vector<MethodInfo>>>& info, TypeID id, std::string_view name);
 template FieldInfo* ReflMgr::SafeGet(std::map<TypeID, std::map<std::string, FieldInfo>>& info, TypeID id, std::string_view name);
 
-bool ReflMgr::CheckParams(MethodInfo info, const ArgsTypeList& lst) {
+bool ReflMgr::CheckParams(const MethodInfo& info, const ArgsTypeList& lst, const ArgsTypeList& classTemplateArgs, const ArgsTypeList& funcTemplateArgs, int checkMode) {
     if (info.argsList.size() != lst.size()) {
         return false;
     }
     for (int i = 0; i < info.argsList.size(); i++) {
-        if (!lst[i].canBeAppliedTo(info.argsList[i])) {
+        if (!info.argsList[i].Match(classTemplateArgs, funcTemplateArgs, lst[i], checkMode)) {
             return false;
         }
     }
     return true;
 }
 
-const MethodInfo* ReflMgr::SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args) {
-    auto* lst = SafeGet(methodInfo, id, name);
+const MethodInfo* ReflMgr::SafeGet(TemplatedTypeID id, std::string_view name, const ArgsTypeList& args, const ArgsTypeList& funcTemplateArgs) {
+    auto* lst = SafeGet(methodInfo, id.base, name);
     if (lst == nullptr) {
         return nullptr;
     }
     for (const auto& info : *lst) {
-        if (CheckParams(info, args)) {
+        if (CheckParams(info, args, id.args, funcTemplateArgs)) {
             return &info;
         }
     }
     return nullptr;
 }
 
-template<typename Ret> Ret* ReflMgr::WalkThroughInherits(void** instance, TypeID id, std::function<Ret*(TypeID)> func) {
-    std::queue<std::pair<TypeID, void*>> q;
+template<typename Ret> Ret* ReflMgr::WalkThroughInherits(void** instance, TemplatedTypeID id, std::function<Ret*(TemplatedTypeID)> func) {
+    std::queue<std::pair<TemplatedTypeID, void*>> q;
     q.push({id, instance == nullptr ? nullptr : *instance});
     while (!q.empty()) {
         auto [type, ptr] = q.front();
@@ -78,29 +68,29 @@ template<typename Ret> Ret* ReflMgr::WalkThroughInherits(void** instance, TypeID
             }
             return ret;
         }
-        if (HasClassInfo(type)) {
-            ClassInfo& info = classInfo[type];
-            for (int i = 0; i < info.parents.size(); i++) {
-                q.push({info.parents[i], instance == nullptr ? nullptr : info.cast[i](ptr)});
+        if (HasClassInfo(type.base)) {
+            ClassInfo& info = classInfo[type.base];
+            for (int i = 0; i < info.get().parents.size(); i++) {
+                q.push({info.get().parents[i], instance == nullptr ? nullptr : info.get().cast[i](ptr)});
             }
         }
     }
     return nullptr;
 }
 
-template FieldInfo* ReflMgr::WalkThroughInherits(void** instance, TypeID id, std::function<FieldInfo*(TypeID)> func);
-template MethodInfo* ReflMgr::WalkThroughInherits(void** instance, TypeID id, std::function<MethodInfo*(TypeID)> func);
+template FieldInfo* ReflMgr::WalkThroughInherits(void** instance, TemplatedTypeID id, std::function<FieldInfo*(TemplatedTypeID)> func);
+template MethodInfo* ReflMgr::WalkThroughInherits(void** instance, TemplatedTypeID id, std::function<MethodInfo*(TemplatedTypeID)> func);
 
-const FieldInfo* ReflMgr::SafeGetFieldWithInherit(void** instance, TypeID id, std::string_view name, bool showError) {
-    auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(fieldInfo, type, name); }));
+const FieldInfo* ReflMgr::SafeGetFieldWithInherit(void** instance, TemplatedTypeID id, std::string_view name, bool showError) {
+    auto ret = WalkThroughInherits(instance, id, std::function([&](TemplatedTypeID type) { return SafeGet(fieldInfo, type.base, name); }));
     if (ret == nullptr && showError) {
         std::cerr << "Error: no matching field found: " << id.getName() << "::" << name << std::endl;
     }
     return ret;
 }
 
-const MethodInfo* ReflMgr::SafeGetMethodWithInherit(void** instance, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError) {
-    auto ret = WalkThroughInherits(instance, id, std::function([&](TypeID type) { return SafeGet(type, name, args); }));
+const MethodInfo* ReflMgr::SafeGetMethodWithInherit(void** instance, TemplatedTypeID id, std::string_view name, const ArgsTypeList& args, const ArgsTypeList& funcTemplateArgs, bool showError) {
+    auto ret = WalkThroughInherits(instance, id, std::function([&](TemplatedTypeID type) { return SafeGet(type, name, args, funcTemplateArgs); }));
     if (ret == nullptr && showError) {
         std::cerr << "Error: no matching method found: " << id.getName() << "::" << name << "(";
         if (args.size() > 0) {
@@ -118,43 +108,51 @@ bool ReflMgr::HasClassInfo(TypeID type) {
     return classInfo.find(type) != classInfo.end();
 }
 
-SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
-    auto& func = classInfo[type].newObject;
+SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args, const ArgsTypeList& templateArgs) {
+    auto& func = classInfo[type].get().newObject;
     if (func == 0) {
         std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
         return SharedObject::Null;
     }
-    return func(args);
+    return func(args).AddTemplateArgs(templateArgs);
 }
 
-SharedObject ReflMgr::New(std::string_view typeName, const std::vector<ObjectPtr>& args) {
-    return New(TypeID::getRaw(typeName), args);
+SharedObject ReflMgr::New(std::string_view typeName, const std::vector<ObjectPtr>& args, const ArgsTypeList& templateArgs) {
+    return New(TypeID::getRaw(typeName), args, templateArgs);
 }
 
-ObjectPtr ReflMgr::RawGetField(TypeID type, void* instance, std::string_view member) {
+ObjectPtr ReflMgr::RawGetField(TemplatedTypeID type, void* instance, std::string_view member) {
     auto* p = SafeGetFieldWithInherit(&instance, type, member);
     if (p == nullptr) {
         return ObjectPtr::Null;
     }
-    return p->getRegister(instance);
+    return p->getRegister(instance, type.args);
 }
 
-SharedObject ReflMgr::RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params) {
-    auto* info = SafeGetMethodWithInherit(&instance, type, member, list);
+SharedObject ReflMgr::RawInvoke(TemplatedTypeID type, void* instance, std::string_view member, const ArgsTypeList& list, const ArgsTypeList& funcTemplateArgs, std::vector<void*> params) {
+    auto* info = SafeGetMethodWithInherit(&instance, type, member, list, funcTemplateArgs);
     if (info == nullptr || info->name == "") {
         return SharedObject::Null;
     }
-    return info->getRegister(instance, params);
+    return info->getRegister(instance, params, type.args, funcTemplateArgs);
 }
 
 void ReflMgr::AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList) {
     auto type = TypeID::getRaw(cls);
-    classInfo[type].newObject = ctor;
-    classInfo[type].tags = tagList;
+    classInfo[type].get().newObject = ctor;
+    classInfo[type].get().tags = tagList;
+}
+
+bool ReflMgr::SameClass(TypeID a, TypeID b) {
+    return &classInfo[a].get() == &classInfo[b].get();
+}
+
+void ReflMgr::AliasClass(std::string_view alias, TypeID target) {
+    classInfo[TypeID::getRaw(alias)].aliasTo = &classInfo[target];
 }
 
 const TagList& ReflMgr::GetClassTag(TypeID cls) {
-    return classInfo[cls].tags;
+    return classInfo[cls].get().tags;
 }
 const TagList& ReflMgr::GetFieldTag(TypeID cls, std::string_view name) {
     return fieldInfo[cls][std::string{name}].tags;
@@ -165,65 +163,65 @@ const TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name) {
 const TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
     auto& infos = methodInfo[cls][std::string{name}];
     for (auto& info : infos) {
-        if (CheckParams(info, args)) {
+        if (CheckParams(info, args, {}, {}, 3)) {
             return info.tags;
         }
     }
     return infos[0].tags;
 }
 
-void ReflMgr::ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
+void ReflMgr::ExportAddField(TemplatedTypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
     FieldInfo info{ std::string{name} };
-    fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
+    fieldInfo[cls.base][std::string{name}] = info.withRegister([func, cls](void* ptr, const ArgsTypeList&) { return func(ObjectPtr{cls, ptr}); });
 }
 
-void ReflMgr::ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
+void ReflMgr::ExportAddStaticField(TemplatedTypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
     FieldInfo info{ std::string{name} };
-    fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(); });
+    fieldInfo[cls.base][std::string{name}] = info.withRegister([func](void* ptr, const ArgsTypeList&) { return func(); });
 }
 
 ObjectPtr ReflMgr::ExportGetField(ObjectPtr instance, std::string_view name) {
-    return RawGetField(instance.GetType(), instance.GetRawPtr(), name);
+    return RawGetField(instance.GetType().base, instance.GetRawPtr(), name);
 }
 
-void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func) {
+void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, IncompleteType returnType, const std::vector<IncompleteType>& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func) {
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+    methodInfo[cls][std::string{name}].push_back(info.withRegister([func, cls, returnType, argsList](void* instance, const std::vector<void*>& params, const ArgsTypeList& classTemplateArgs, const ArgsTypeList& funcTemplateArgs) -> SharedObject {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
-            args.push_back(ObjectPtr{argsList[i], params[i]});
+            args.push_back(ObjectPtr{argsList[i].ApplyWith(classTemplateArgs, funcTemplateArgs), params[i]});
         }
-        return func(ObjectPtr{returnType, instance}, args);
+        return func(ObjectPtr{cls, instance}, args);
     }));
 }
 
-SharedObject ReflMgr::ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params) {
+SharedObject ReflMgr::ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params, const ArgsTypeList& funcTemplateArgs) {
     ArgsTypeList list;
     std::vector<void*> args;
     for (auto param : params) {
         args.push_back(param.GetRawPtr());
         list.push_back(param.GetType());
     }
-    return RawInvoke(instance.GetType(), instance.GetRawPtr(), name, list, args);
+    return RawInvoke(instance.GetType(), instance.GetRawPtr(), name, list, funcTemplateArgs, args);
 }
 
-void ReflMgr::ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
+void ReflMgr::ExportAddStaticMethod(TemplatedTypeID cls, std::string_view name, IncompleteType returnType, const std::vector<IncompleteType>& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    methodInfo[cls][std::string{name}].push_back(info.withRegister([func, returnType, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+    methodInfo[cls.base][std::string{name}].push_back(info.withRegister([func, argsList](void* instance, const std::vector<void*>& params, const ArgsTypeList& classTemplateArgs, const ArgsTypeList& funcTemplateArgs) -> SharedObject {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
-            args.push_back(ObjectPtr{argsList[i], params[i]});
+            args.push_back(ObjectPtr{argsList[i].ApplyWith(classTemplateArgs, funcTemplateArgs), params[i]});
         }
         return func(args);
     }));
 }
 
-SharedObject ReflMgr::ExportInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params) {
-    return InvokeStatic(type, name, params);
+SharedObject ReflMgr::ExportInvokeStatic(TemplatedTypeID type, std::string_view name, const std::vector<ObjectPtr>& params) {
+    return InvokeStatic(type.base, name, params);
 }
 
 void ReflMgr::SelfExport() {

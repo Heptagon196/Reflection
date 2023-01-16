@@ -14,6 +14,7 @@ set(SOURCES
     ReflMgrInit.cpp
     TypeID.cpp
     ReflMgr.cpp
+    ClassInfo.cpp
     main.cpp
 )
 

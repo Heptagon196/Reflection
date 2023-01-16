@@ -35,6 +35,14 @@ bool TypeID::canBeAppliedTo(const TypeID& other) const {
     return (checkRefAndConst(other) && (hash == other.hash || canImplicitlyConvertTo(other)));
 }
 
+bool TypeID::equalTo(const TypeID& other, bool hashOnly) const {
+    if (hashOnly) {
+        return hash == other.hash;
+    } else {
+        return *this == other;
+    }
+}
+
 bool TypeID::operator == (const TypeID& other) const {
     return hash == other.hash && is_ref == other.is_ref && is_const == other.is_const;
 }

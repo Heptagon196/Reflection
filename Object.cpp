@@ -1,6 +1,35 @@
 #include "ReflMgr.h"
 #include "Object.h"
 
+TemplatedTypeID::TemplatedTypeID() {
+    base = TypeID::get<void>();
+}
+
+TemplatedTypeID::TemplatedTypeID(TypeID type) {
+    base = type;
+}
+
+std::string TemplatedTypeID::getName() const {
+    if (args.size() == 0) {
+        return (std::string)base.getName();
+    }
+    auto ret = (std::string)base.getName() + "<";
+    for (int i = 0; i < args.size(); i++) {
+        ret += args[i].getName() + ", ";
+    }
+    ret.pop_back();
+    ret[ret.size() - 1] = '>';
+    return ret;
+}
+
+ObjectInfo::ObjectInfo(TypeID type) {
+    this->id.base = type;
+}
+
+ObjectInfo::ObjectInfo(TemplatedTypeID type) {
+    this->id = type;
+}
+
 Namespace::Namespace(std::string_view space) : space(TypeID::getRaw(space)) {
     vObj = SharedObject{ this->space, nullptr };
 }
@@ -23,29 +52,26 @@ SharedObject Namespace::Invoke(std::string_view method, const std::vector<Object
 
 const Namespace Namespace::Global = { "" };
 
-const SharedObject SharedObject::Null = { TypeID::get<void>(), nullptr };
+const SharedObject SharedObject::Null = { TypeID::get<void>(), nullptr, false };
 
-const ObjectPtr ObjectPtr::Null = { TypeID::get<void>(), nullptr };
+const ObjectPtr ObjectPtr::Null = { std::make_shared<ObjectInfo>(TypeID::get<void>()), nullptr };
 
-ObjectPtr::ObjectPtr() : id(TypeID::get<void>()), ptr(nullptr) {}
-ObjectPtr::ObjectPtr(const ObjectPtr& other) : id(other.id), ptr(other.ptr) {}
-ObjectPtr::ObjectPtr(TypeID id, void* ptr) : id(id), ptr(ptr) {}
-ObjectPtr::ObjectPtr(const SharedObject& obj) : id(obj.id), ptr(obj.GetRawPtr()) {}
+ObjectPtr::ObjectPtr() : info(std::make_shared<ObjectInfo>(TypeID::get<void>())), content(nullptr) {}
+ObjectPtr::ObjectPtr(const ObjectPtr& other) : info(other.info), content(other.content) {}
+ObjectPtr::ObjectPtr(std::shared_ptr<ObjectInfo> info, void* ptr) : info(info), content(ptr) {}
+ObjectPtr::ObjectPtr(const SharedObject& obj) : info(obj.info), content(obj.GetRawPtr()) {}
+ObjectPtr::ObjectPtr(TemplatedTypeID id, void* ptr) : info(std::make_shared<ObjectInfo>(id)), content(ptr) {}
 
-TypeID ObjectPtr::GetType() const {
-    return id;
+TemplatedTypeID& ObjectPtr::GetType() const {
+    return info->id;
 }
 
 void* ObjectPtr::GetPtr() const {
-    return ptr;
+    return content;
 }
 
 void* ObjectPtr::GetRawPtr() const {
-    return ptr;
-}
-
-SharedObject ObjectPtr::ToSharedPtr() const {
-    return SharedObject{ id, ptr };
+    return content;
 }
 
 ObjectPtr ObjectPtr::GetField(std::string_view name) const {
@@ -57,39 +83,46 @@ SharedObject ObjectPtr::Invoke(std::string_view method, const std::vector<Object
 }
 
 SharedObject ObjectPtr::TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params) const {
-    return ReflMgr::Instance().Invoke(*this, method, params, false);
+    return ReflMgr::Instance().Invoke(*this, method, params, {}, false);
 }
 
-SharedObject::SharedObject() : id(TypeID::get<void>()), ptr(nullptr), objPtr(nullptr) {};
-SharedObject::SharedObject(const SharedObject& other) : id(other.id), ptr(other.ptr), objPtr(other.objPtr) {}
-SharedObject::SharedObject(TypeID id, void* objPtr) : id(id), objPtr(objPtr) {}
-SharedObject::SharedObject(TypeID id, std::shared_ptr<void> ptr, bool call_ctor) : id(id), ptr(ptr), objPtr(nullptr) {
-    if (id == TypeID::get<void>()) {
+SharedObject::SharedObject() : info(std::make_shared<ObjectInfo>(TypeID::get<void>())), content(nullptr), fallbackPtr(nullptr) {};
+SharedObject::SharedObject(const SharedObject& other) : info(other.info), content(other.content), fallbackPtr(other.fallbackPtr) {}
+SharedObject::SharedObject(TypeID type, void* objPtr) : info(std::make_shared<ObjectInfo>(type)), fallbackPtr(objPtr) {};
+SharedObject::SharedObject(std::shared_ptr<ObjectInfo> info, void* objPtr) : info(info), fallbackPtr(objPtr) {}
+SharedObject::SharedObject(const TemplatedTypeID& id, std::shared_ptr<void> ptr, bool call_ctor) : info(std::make_shared<ObjectInfo>(id)), content(ptr), fallbackPtr(nullptr) {
+    if (id.base == TypeID::get<void>()) {
         return;
     }
-    needDestruct = true;
     if (call_ctor) {
         ctor({});
     }
 }
 
-TypeID SharedObject::GetType() const {
-    return id;
+SharedObject& SharedObject::AddTemplateArgs(const ArgsTypeList& templateArgs) {
+    if (templateArgs.size() > 0) {
+        info->id.args = templateArgs;
+    }
+    return *this;
+}
+
+TemplatedTypeID& SharedObject::GetType() const {
+    return info->id;
 }
 
 std::shared_ptr<void> SharedObject::GetPtr() const {
-    return ptr;
+    return content;
 }
 
 bool SharedObject::isObjectPtr() const {
-    return objPtr != nullptr;
+    return fallbackPtr != nullptr;
 }
 
 void* SharedObject::GetRawPtr() const {
     if (isObjectPtr()) {
-        return objPtr;
+        return fallbackPtr;
     }
-    return ptr.get();
+    return content.get();
 }
 
 ObjectPtr SharedObject::GetField(std::string_view name) const {
@@ -101,14 +134,14 @@ SharedObject SharedObject::Invoke(std::string_view method, const std::vector<Obj
 }
 
 SharedObject SharedObject::TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params) const {
-    return ReflMgr::Instance().Invoke(*this, method, params, false);
+    return ReflMgr::Instance().Invoke(*this, method, params, {}, false);
 }
 
 ObjectPtr SharedObject::ToObjectPtr() const {
     if (isObjectPtr()) {
-        return ObjectPtr{ id, objPtr };
+        return ObjectPtr{ info, fallbackPtr };
     }
-    return ObjectPtr{ id, ptr.get() };
+    return ObjectPtr{ info, content.get() };
 }
 
 #define DEFOPS(T)               \
@@ -137,10 +170,10 @@ ObjectPtr SharedObject::ToObjectPtr() const {
         return ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_tostring, {});               \
     }                                                                                                   \
     void T::ctor(const std::vector<ObjectPtr>& args) const {                                            \
-        ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_ctor, args, false);                 \
+        ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_ctor, args, {}, false);             \
     }                                                                                                   \
     void T::dtor() const {                                                                              \
-        ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_dtor, {}, false);                   \
+        ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_dtor, {}, {}, false);               \
     }                                                                                                   \
     SharedObject T::begin() {                                                                           \
         return ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_begin, {});                  \
@@ -180,7 +213,7 @@ DEFOPS(ObjectPtr)
 
 std::ostream& operator << (std::ostream& out, const ObjectPtr& ptr) {
     auto obj = ptr.Invoke(MetaMethods::operator_tostring, {});
-    if (obj.GetType() != TypeID::get<std::string>()) {
+    if (obj.GetType().base != TypeID::get<std::string>()) {
         return out;
     }
     out << obj.Get<std::string>();
@@ -189,7 +222,7 @@ std::ostream& operator << (std::ostream& out, const ObjectPtr& ptr) {
 
 std::ostream& operator << (std::ostream& out, const SharedObject& ptr) {
     auto obj = ptr.Invoke(MetaMethods::operator_tostring, {});
-    if (obj.GetType() != TypeID::get<std::string>()) {
+    if (obj.GetType().base != TypeID::get<std::string>()) {
         return out;
     }
     out << obj.Get<std::string>();
@@ -197,7 +230,7 @@ std::ostream& operator << (std::ostream& out, const SharedObject& ptr) {
 }
 
 SharedObject::~SharedObject() {
-    if (id == TypeID::get<void>() || !needDestruct) {
+    if (info->id.base == TypeID::get<void>() || content.use_count() != 1) {
         return;
     }
     dtor();

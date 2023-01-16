@@ -25,9 +25,9 @@ static void print(std::stringstream& out, const T& val) {
         out << '"' << val << '"';
     } else {
         if constexpr (std::same_as<T, SharedObject> || std::same_as<T, ObjectPtr>) {
-            if (val.GetType() == TypeID::get<std::string>()) {
+            if (val.GetType().base == TypeID::get<std::string>()) {
                 out << '"' << codeString(val.template Get<std::string>()) << '"';
-            } else if (val.GetType() == TypeID::get<std::string_view>()) {
+            } else if (val.GetType().base == TypeID::get<std::string_view>()) {
                 out << '"' << codeString(val.template Get<std::string_view>()) << '"';
             } else {
                 out << val;

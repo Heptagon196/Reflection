@@ -40,26 +40,47 @@ class SharedObject;
 template<typename T> struct ToObject;
 template<typename T> struct ToShared;
 
+struct TemplatedTypeID;
+
+struct ArgsTypeList : std::vector<TemplatedTypeID> {
+    using std::vector<TemplatedTypeID>::operator=;
+    using std::vector<TemplatedTypeID>::vector;
+};
+
+struct TemplatedTypeID {
+    TypeID base;
+    ArgsTypeList args;
+    TemplatedTypeID();
+    TemplatedTypeID(TypeID type);
+    std::string getName() const;
+};
+
+struct ObjectInfo {
+    ObjectInfo(TypeID type);
+    ObjectInfo(TemplatedTypeID type);
+    TemplatedTypeID id;
+};
+
 class ObjectPtr {
     private:
-        TypeID id;
-        void* ptr;
+        std::shared_ptr<ObjectInfo> info;
+        void* content;
     public:
         DEFOPS(ObjectPtr)
         static const ObjectPtr Null;
         ObjectPtr();
         ObjectPtr(const ObjectPtr& other);
-        ObjectPtr(TypeID id, void* ptr);
+        ObjectPtr(std::shared_ptr<ObjectInfo> info, void* ptr);
+        ObjectPtr(TemplatedTypeID id, void* ptr);
         ObjectPtr(const SharedObject& obj);
-        TypeID GetType() const;
+        TemplatedTypeID& GetType() const;
         void* GetPtr() const;
         void* GetRawPtr() const;
-        SharedObject ToSharedPtr() const;
         ObjectPtr GetField(std::string_view member) const;
         SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
         SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
-        template<typename T> T& As() { return *(T*)ptr; }
-        template<typename T> const T& Get() const { return *(T*)ptr; }
+        template<typename T> T& As() { return *(T*)content; }
+        template<typename T> const T& Get() const { return *(T*)content; }
         friend class SharedObject;
         friend struct ToShared<ObjectPtr>;
         friend std::ostream& operator << (std::ostream& out, const ObjectPtr& ptr);
@@ -72,10 +93,9 @@ class ObjectPtr {
  
 class SharedObject {
     private:
-        TypeID id;
-        std::shared_ptr<void> ptr;
-        void* objPtr;
-        bool needDestruct = false;
+        std::shared_ptr<ObjectInfo> info;
+        std::shared_ptr<void> content;
+        void* fallbackPtr;
     public:
         template<typename T, typename... Args>
         static SharedObject New(Args&&... args) {
@@ -89,10 +109,12 @@ class SharedObject {
         static const SharedObject Null;
         SharedObject();
         SharedObject(const SharedObject& other);
-        SharedObject(TypeID id, void* objPtr);
-        SharedObject(TypeID id, std::shared_ptr<void> ptr, bool call_ctor = true);
+        SharedObject(TypeID type, void* objPtr);
+        SharedObject(std::shared_ptr<ObjectInfo> info, void* objPtr);
+        SharedObject(const TemplatedTypeID& id, std::shared_ptr<void> ptr, bool call_ctor = true);
+        SharedObject& AddTemplateArgs(const ArgsTypeList& templateArgs);
         bool isObjectPtr() const;
-        TypeID GetType() const;
+        TemplatedTypeID& GetType() const;
         std::shared_ptr<void> GetPtr() const;
         void* GetRawPtr() const;
         ObjectPtr GetField(std::string_view member) const;
@@ -122,7 +144,7 @@ struct ToShared { SharedObject operator()(const T& other) { return SharedObject:
 template<>
 struct ToShared<SharedObject> { SharedObject operator()(const SharedObject& other) { return other; }};
 template<>
-struct ToShared<ObjectPtr> { SharedObject operator()(const ObjectPtr& other) { return SharedObject{other.id, other.ptr}; }};
+struct ToShared<ObjectPtr> { SharedObject operator()(const ObjectPtr& other) { return SharedObject{ other.info, other.content }; }};
 
 class Namespace {
     private:

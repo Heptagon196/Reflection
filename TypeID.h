@@ -52,6 +52,7 @@ class TypeID {
         std::string_view getName() const;
         bool canBeAppliedTo(const TypeID& other) const;
         std::shared_ptr<void> implicitConvertInstance(void* instance, TypeID target);
+        bool equalTo(const TypeID& other, bool hashOnly = false) const;
         bool operator == (const TypeID& other) const;
         bool operator != (const TypeID& other) const;
         bool operator < (const TypeID& other) const;
