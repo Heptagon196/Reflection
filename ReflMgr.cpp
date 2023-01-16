@@ -195,7 +195,7 @@ void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, TypeID returnType,
         for (int i = 0; i < params.size(); i++) {
             args.push_back(ObjectPtr{argsList[i], params[i]});
         }
-        return func(ObjectPtr{returnType, instance}, args);
+        return func(ObjectPtr{cls, instance}, args);
     }));
 }
 
