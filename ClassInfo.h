@@ -10,6 +10,8 @@ using TagList = std::map<std::string, std::vector<std::string>>;
 struct IncompleteType {
     IncompleteType();
     IncompleteType(TypeID type);
+    IncompleteType(int argID);
+    IncompleteType(TypeID type, const std::vector<IncompleteType>& params);
     TypeID type;
     int argID = 0;
     std::vector<IncompleteType> params;
@@ -48,7 +50,6 @@ struct FieldType {
 
 struct BaseClassInfo {
     TagList tags;
-    std::vector<IncompleteType> templateArgs;
     std::vector<TypeID> parents;
     std::vector<std::function<void*(void*)>> cast;
     std::function<SharedObject(const std::vector<ObjectPtr>&)> newObject = 0;

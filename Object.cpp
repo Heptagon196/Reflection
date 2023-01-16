@@ -62,6 +62,10 @@ ObjectPtr::ObjectPtr(std::shared_ptr<ObjectInfo> info, void* ptr) : info(info), 
 ObjectPtr::ObjectPtr(const SharedObject& obj) : info(obj.info), content(obj.GetRawPtr()) {}
 ObjectPtr::ObjectPtr(TemplatedTypeID id, void* ptr) : info(std::make_shared<ObjectInfo>(id)), content(ptr) {}
 
+SharedObject ObjectPtr::ToSharedObj() const {
+    return ToShared<ObjectPtr>()(*this);
+}
+
 TemplatedTypeID& ObjectPtr::GetType() const {
     return info->id;
 }

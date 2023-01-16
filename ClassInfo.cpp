@@ -20,6 +20,8 @@ BaseClassInfo& ClassInfo::get() {
 
 IncompleteType::IncompleteType() {}
 IncompleteType::IncompleteType(TypeID type) : type(type) {}
+IncompleteType::IncompleteType(int argID) : argID(argID) {}
+IncompleteType::IncompleteType(TypeID type, const std::vector<IncompleteType>& params) : type(type), params(params) {}
 
 static inline bool Check(TypeID a, TypeID b, int checkMode) {
     if (checkMode == 0) {

@@ -364,12 +364,12 @@ class ReflMgr {
         const TagList& GetFieldTag(TypeID cls, std::string_view name);
         const TagList& GetMethodInfo(TypeID cls, std::string_view name);
         const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
+        void RawAddMethod(TypeID cls, std::string_view name, IncompleteType returnType, const std::vector<IncompleteType>& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
     private:
         // functions to be exported
         void ExportAddField(TemplatedTypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
         void ExportAddStaticField(TemplatedTypeID cls, std::string_view name, std::function<ObjectPtr()> func);
         ObjectPtr ExportGetField(ObjectPtr instance, std::string_view name);
-        void RawAddMethod(TypeID cls, std::string_view name, IncompleteType returnType, const std::vector<IncompleteType>& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
         SharedObject ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params, const ArgsTypeList& funcTemplateArgs);
         void ExportAddStaticMethod(TemplatedTypeID cls, std::string_view name, IncompleteType returnType, const std::vector<IncompleteType>& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func);
         SharedObject ExportInvokeStatic(TemplatedTypeID type, std::string_view name, const std::vector<ObjectPtr>& params);
