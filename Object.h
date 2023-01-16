@@ -76,7 +76,6 @@ class ObjectPtr {
         TemplatedTypeID& GetType() const;
         void* GetPtr() const;
         void* GetRawPtr() const;
-        SharedObject ToSharedObj() const;
         ObjectPtr GetField(std::string_view member) const;
         SharedObject Invoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
         SharedObject TryInvoke(std::string_view method, const std::vector<ObjectPtr>& params = {}) const;
