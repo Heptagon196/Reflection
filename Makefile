@@ -1,6 +1,8 @@
 CXX=g++ --std=c++20
 DEFAULT: main.o Object.o ReflMgrInit.o JSON.o TypeID.o ReflMgr.o
 	$(CXX) main.o Object.o ReflMgrInit.o JSON.o TypeID.o ReflMgr.o -o refl
+link: Object.o ReflMgrInit.o JSON.o TypeID.o ReflMgr.o
+	ld -r Object.o ReflMgrInit.o JSON.o TypeID.o ReflMgr.o -o reflection.o
 Object.o: Object.cpp
 	$(CXX) -c Object.cpp
 ReflMgrInit.o: ReflMgrInit.cpp
