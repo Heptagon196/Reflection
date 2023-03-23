@@ -398,6 +398,7 @@ class ReflMgr {
             };
             classInfo[type].tags = tagList;
         }
+        void AddAliasClass(std::string_view from, std::string_view to);
         void AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList = {});
         const TagList& GetClassTag(TypeID cls);
         const TagList& GetFieldTag(TypeID cls, std::string_view name);

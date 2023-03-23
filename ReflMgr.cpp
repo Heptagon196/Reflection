@@ -117,9 +117,13 @@ bool ReflMgr::HasClassInfo(TypeID type) {
 }
 
 SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
-    auto& func = classInfo[type].newObject;
+    TypeID target = type;
+    while (!classInfo[target].aliasTo.isNull()) {
+        target = classInfo[target].aliasTo;
+    }
+    auto& func = classInfo[target].newObject;
     if (func == 0) {
-        std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
+        std::cerr << "Error: unable to init an unregistered class: " << type.getName() << "(aliased to " << target.getName() << " )" << std::endl;
         return SharedObject::Null;
     }
     return func(args);
@@ -156,6 +160,10 @@ SharedObject ReflMgr::RawInvoke(TypeID type, void* instance, std::string_view me
         return SharedObject::Null;
     }
     return info->getRegister(conv(instance), params);
+}
+
+void ReflMgr::AddAliasClass(std::string_view from, std::string_view to) {
+    classInfo[TypeID::getRaw(from)].aliasTo = TypeID::getRaw(to);
 }
 
 void ReflMgr::AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList) {
