@@ -173,6 +173,11 @@ void numberTest() {
         }
     ), "print");
     Namespace::Global.Invoke("print", { SharedObject::New<double>(12.123), SharedObject::New<int>(2), SharedObject::New<size_t>(3) });
+    auto f = ReflMgr::Instance().GetInvokeFunc(Namespace::Global.Type(), "print", { TypeID::get<double>(), TypeID::get<int>(), TypeID::get<size_t>() });
+    int a = 1;
+    double b = 2;
+    int c = 3;
+    f((void*)&Namespace::Global, std::vector<void*>{&a, &b, &c});
 }
 
 struct Info {

@@ -2,6 +2,7 @@
 #include <map>
 #include <utility>
 #include <queue>
+#include <functional>
 #include "TemplateUtils.h"
 #include "Object.h"
 #include "TypeID.h"
@@ -63,9 +64,9 @@ class ReflMgr {
         template<typename T> T* SafeGet(std::map<TypeID, std::map<std::string, T>>& info, TypeID id, std::string_view name);
         bool CheckParams(MethodInfo info, const ArgsTypeList& list);
         const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args);
-        template<typename Ret> Ret* WalkThroughInherits(void** instance, TypeID id, std::function<Ret*(TypeID)> func);
-        const FieldInfo* SafeGetFieldWithInherit(void** instance, TypeID id, std::string_view name, bool showError = true);
-        const MethodInfo* SafeGetMethodWithInherit(void** instance, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true);
+        template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);
+        const FieldInfo* SafeGetFieldWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, bool showError = true);
+        const MethodInfo* SafeGetMethodWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true);
         bool HasClassInfo(TypeID type);
     public:
         ReflMgr(const ReflMgr&) = delete;
@@ -342,6 +343,7 @@ class ReflMgr {
             MethodInfo info{ std::string{name} };
             AddStaticMethod(type, func, info);
         }
+        std::function<SharedObject(void*, std::vector<void*>)> GetInvokeFunc(TypeID type, std::string_view member, ArgsTypeList list);
         SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params);
         template<typename T = ObjectPtr, typename U>
         SharedObject Invoke(U instance, std::string_view method, const std::vector<T>& params, bool showError = true) {
@@ -350,7 +352,9 @@ class ReflMgr {
                 list.push_back(param.GetType());
             }
             void* ptr = instance.GetRawPtr();
-            auto* info = SafeGetMethodWithInherit(&ptr, instance.GetType(), method, list, showError);
+            std::function<void*(void*)> conv = [](void* orig) { return orig; };
+            auto* info = SafeGetMethodWithInherit(&conv, instance.GetType(), method, list, showError);
+            ptr = conv(ptr);
             if (info == nullptr || info->name == "") {
                 return SharedObject::Null;
             }
@@ -363,7 +367,8 @@ class ReflMgr {
             for (auto param : params) {
                 list.push_back(param.GetType());
             }
-            auto* info = SafeGetMethodWithInherit(nullptr, type, method, list, showError);
+            std::function<void*(void*)> conv = [](void* orig) { return orig; };
+            auto* info = SafeGetMethodWithInherit(&conv, type, method, list, showError);
             if (info == nullptr) {
                 return SharedObject::Null;
             }
