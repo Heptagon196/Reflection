@@ -204,6 +204,14 @@ void tagTest() {
     std::cout << mgr.GetFieldTag(TypeID::get<Info>(), "x").at("tag")[0] << std::endl;
 }
 
+struct X {
+    int x;
+    X& operator = (const X& other) {
+        x = other.x;
+        return *this;
+    }
+};
+
 int main() {
     ReflMgrTool::Init();
     JSON::Init();

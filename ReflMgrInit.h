@@ -74,6 +74,11 @@ namespace ReflMgrTool {
                 MetaMethods::operator_tostring
             );
         }
+        if constexpr (MetaMethods::has_operator_assign<T>) {
+            mgr.AddMethod<T>(std::function(
+                [](T* self, const T& other) -> decltype(auto) { return (*self) = other; }
+            ), MetaMethods::operator_assign);
+        }
 
 #undef METHODS_CONCEPT
 #undef METHODS_NAME

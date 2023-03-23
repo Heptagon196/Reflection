@@ -166,6 +166,10 @@ ObjectPtr SharedObject::ToObjectPtr() const {
     SharedObject T::operator * () {                                                                     \
         return ReflMgr::Instance().Invoke(*(T*)this, MetaMethods::operator_indirection, {});            \
     }                                                                                                   \
+    SharedObject T::assign(const ObjectPtr& other) const {                                              \
+        return ReflMgr::Instance().Invoke(*(T*)this,                                                    \
+            MetaMethods::operator_assign, std::vector<ObjectPtr>{ other });                             \
+    }                                                                                                   \
 
 #define BIDEF(T, op, meta)                                                                                      \
     SharedObject T::operator op (const T& other) const {                                                        \

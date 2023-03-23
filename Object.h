@@ -33,6 +33,7 @@ class SharedObject;
     SharedObject operator ++ ();                                                \
     SharedObject operator -- ();                                                \
     SharedObject operator * ();                                                 \
+    SharedObject assign(const ObjectPtr& other) const;                          \
 
 #define BIDEF(T, op)                                    \
     SharedObject operator op (const T& other) const;

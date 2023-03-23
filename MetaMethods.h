@@ -38,6 +38,7 @@ namespace MetaMethods {
     template<typename T> concept has_operator_dec_pre = requires(T a) { --a; };
     template<typename T> concept has_operator_dec_post = requires(T a) { a--; };
     DEFOP(tostring); template<typename T> concept has_operator_tostring = requires(T a, std::ostream b) { b << a; };
+    DEFOP(assign); template<typename T> concept has_operator_assign = requires(T a, T b) { a = b; };
 #undef DEFMULTI
 #undef DEFDOUBLE
 #undef DEFSINGLE
