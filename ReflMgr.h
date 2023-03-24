@@ -404,15 +404,13 @@ class ReflMgr {
         const TagList& GetFieldTag(TypeID cls, std::string_view name);
         const TagList& GetMethodInfo(TypeID cls, std::string_view name);
         const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
-    private:
-        // functions to be exported
-        void ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
-        void ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func);
-        ObjectPtr ExportGetField(ObjectPtr instance, std::string_view name);
-        void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
-        SharedObject ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params);
-        void ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func);
-        SharedObject ExportInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params);
     public:
+        void RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
+        void RawAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func);
+        ObjectPtr RawGetField(ObjectPtr instance, std::string_view name);
+        void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
+        SharedObject RawInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params);
+        void RawAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func);
+        SharedObject RawInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params);
         void SelfExport();
 };

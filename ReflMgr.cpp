@@ -195,17 +195,17 @@ const TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const A
     return infos[0].tags;
 }
 
-void ReflMgr::ExportAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
+void ReflMgr::RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
     FieldInfo info{ std::string{name} };
     fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
 }
 
-void ReflMgr::ExportAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
+void ReflMgr::RawAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
     FieldInfo info{ std::string{name} };
     fieldInfo[cls][std::string{name}] = info.withRegister([func](void* ptr) { return func(); });
 }
 
-ObjectPtr ReflMgr::ExportGetField(ObjectPtr instance, std::string_view name) {
+ObjectPtr ReflMgr::RawGetField(ObjectPtr instance, std::string_view name) {
     return RawGetField(instance.GetType(), instance.GetRawPtr(), name);
 }
 
@@ -222,7 +222,7 @@ void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, TypeID returnType,
     }));
 }
 
-SharedObject ReflMgr::ExportInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params) {
+SharedObject ReflMgr::RawInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params) {
     ArgsTypeList list;
     std::vector<void*> args;
     for (auto param : params) {
@@ -232,7 +232,7 @@ SharedObject ReflMgr::ExportInvoke(ObjectPtr instance, std::string_view name, co
     return RawInvoke(instance.GetType(), instance.GetRawPtr(), name, list, args);
 }
 
-void ReflMgr::ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
+void ReflMgr::RawAddStaticMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(const std::vector<ObjectPtr>&)> func) {
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
@@ -245,18 +245,18 @@ void ReflMgr::ExportAddStaticMethod(TypeID cls, std::string_view name, TypeID re
     }));
 }
 
-SharedObject ReflMgr::ExportInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params) {
+SharedObject ReflMgr::RawInvokeStatic(TypeID type, std::string_view name, const std::vector<ObjectPtr>& params) {
     return InvokeStatic(type, name, params);
 }
 
 void ReflMgr::SelfExport() {
     auto& mgr = Instance();
     mgr.AddStaticMethod(TypeID::get<ReflMgr>(), &ReflMgr::Instance, "Instance");
-    mgr.AddMethod(&ReflMgr::ExportAddField, "AddField");
-    mgr.AddMethod(&ReflMgr::ExportAddStaticField, "AddStaticField");
-    mgr.AddMethod(&ReflMgr::ExportGetField, "GetField");
+    mgr.AddMethod(&ReflMgr::RawAddField, "AddField");
+    mgr.AddMethod(&ReflMgr::RawAddStaticField, "AddStaticField");
+    mgr.AddMethod(MethodType<ObjectPtr, ReflMgr, ObjectPtr, std::string_view>::Type(&ReflMgr::RawGetField), "GetField");
     mgr.AddMethod(&ReflMgr::RawAddMethod, "AddMethod");
-    mgr.AddMethod(&ReflMgr::ExportInvoke, "Invoke");
-    mgr.AddMethod(&ReflMgr::ExportAddStaticMethod, "AddStaticMethod");
-    mgr.AddMethod(&ReflMgr::ExportInvokeStatic, "InvokeStatic");
+    mgr.AddMethod(MethodType<SharedObject, ReflMgr, ObjectPtr, std::string_view, const std::vector<ObjectPtr>&>::Type(&ReflMgr::RawInvoke), "Invoke");
+    mgr.AddMethod(&ReflMgr::RawAddStaticMethod, "AddStaticMethod");
+    mgr.AddMethod(&ReflMgr::RawInvokeStatic, "InvokeStatic");
 }
