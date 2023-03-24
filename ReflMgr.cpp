@@ -123,7 +123,11 @@ SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
     }
     auto& func = classInfo[target].newObject;
     if (func == 0) {
-        std::cerr << "Error: unable to init an unregistered class: " << type.getName() << "(aliased to " << target.getName() << " )" << std::endl;
+        if (type != target) {
+            std::cerr << "Error: unable to init an unregistered class: " << type.getName() << " (aliased to " << target.getName() << ")" << std::endl;
+        } else {
+            std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
+        }
         return SharedObject::Null;
     }
     return func(args);
