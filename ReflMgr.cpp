@@ -18,6 +18,9 @@ ReflMgr& ReflMgr::Instance() {
 TypeID ReflMgr::GetType(std::string_view clsName) {
     auto& instance = ReflMgr::Instance();
     TypeID target = TypeID::getRaw(clsName);
+    if (!instance.HasClassInfo(target)) {
+        return target;
+    }
     while (!instance.classInfo[target].aliasTo.isNull()) {
         target = instance.classInfo[target].aliasTo;
     }
