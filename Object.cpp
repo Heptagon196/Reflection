@@ -213,3 +213,14 @@ ObjectPtr::operator bool() const {
 SharedObject::operator bool() const {
     return this->Get<bool>();
 }
+
+ObjectPtr& ObjectPtr::ForceTypeTo(TypeID to) {
+    id = to;
+    return *this;
+
+}
+
+SharedObject& SharedObject::ForceTypeTo(TypeID to) {
+    id = to;
+    return *this;
+}

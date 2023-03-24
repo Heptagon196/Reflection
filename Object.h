@@ -68,6 +68,7 @@ class ObjectPtr {
             *this = ToObject<T>()(other);
             return *this;
         }
+        ObjectPtr& ForceTypeTo(TypeID to);
         operator bool() const;
 };
  
@@ -108,6 +109,7 @@ class SharedObject {
             *this = ToShared<T>()(other);
             return *this;
         }
+        SharedObject& ForceTypeTo(TypeID to);
         operator bool() const;
 };
 

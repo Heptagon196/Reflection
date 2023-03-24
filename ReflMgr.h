@@ -67,12 +67,12 @@ class ReflMgr {
         template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);
         const FieldInfo* SafeGetFieldWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, bool showError = true);
         const MethodInfo* SafeGetMethodWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true);
-        bool HasClassInfo(TypeID type);
     public:
         ReflMgr(const ReflMgr&) = delete;
         ReflMgr(ReflMgr&&) = delete;
         ReflMgr(ReflMgr&) = delete;
         static ReflMgr& Instance();
+        bool HasClassInfo(TypeID type);
         SharedObject New(TypeID type, const std::vector<ObjectPtr>& args = {});
         SharedObject New(std::string_view typeName, const std::vector<ObjectPtr>& args = {});
         template<typename T>
