@@ -15,6 +15,15 @@ ReflMgr& ReflMgr::Instance() {
     return instance;
 }
 
+TypeID ReflMgr::GetType(std::string_view clsName) {
+    auto& instance = ReflMgr::Instance();
+    TypeID target = TypeID::getRaw(clsName);
+    while (!instance.classInfo[target].aliasTo.isNull()) {
+        target = instance.classInfo[target].aliasTo;
+    }
+    return target;
+}
+
 template<typename T> T* ReflMgr::SafeGetList(std::map<TypeID, T>& info, TypeID id) {
     if (info.find(id) == info.end()) {
         return nullptr;
@@ -117,17 +126,9 @@ bool ReflMgr::HasClassInfo(TypeID type) {
 }
 
 SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
-    TypeID target = type;
-    while (!classInfo[target].aliasTo.isNull()) {
-        target = classInfo[target].aliasTo;
-    }
-    auto& func = classInfo[target].newObject;
+    auto& func = classInfo[type].newObject;
     if (func == 0) {
-        if (type != target) {
-            std::cerr << "Error: unable to init an unregistered class: " << type.getName() << " (aliased to " << target.getName() << ")" << std::endl;
-        } else {
-            std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
-        }
+        std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
         return SharedObject::Null;
     }
     return func(args);

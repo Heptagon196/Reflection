@@ -72,6 +72,7 @@ class ReflMgr {
         ReflMgr(ReflMgr&&) = delete;
         ReflMgr(ReflMgr&) = delete;
         static ReflMgr& Instance();
+        static TypeID GetType(std::string_view clsName);
         bool HasClassInfo(TypeID type);
         SharedObject New(TypeID type, const std::vector<ObjectPtr>& args = {});
         SharedObject New(std::string_view typeName, const std::vector<ObjectPtr>& args = {});
