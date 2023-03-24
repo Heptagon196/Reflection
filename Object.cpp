@@ -1,7 +1,7 @@
 #include "ReflMgr.h"
 #include "Object.h"
 
-Namespace::Namespace(std::string_view space) : space(TypeID::getRaw(space)) {
+Namespace::Namespace(std::string_view space) : space(ReflMgr::GetType(space)) {
     vObj = SharedObject{ this->space, nullptr };
 }
 
@@ -14,7 +14,7 @@ Namespace Namespace::getNamespace(std::string_view subSpace) const {
 }
 
 TypeID Namespace::getClass(std::string_view clsName) const {
-    return TypeID::getRaw((std::string)space.getName() + (std::string)clsName);
+    return ReflMgr::GetType((std::string)space.getName() + (std::string)clsName);
 }
 
 SharedObject Namespace::Invoke(std::string_view method, const std::vector<ObjectPtr>& params) const {

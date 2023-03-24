@@ -135,7 +135,7 @@ SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
 }
 
 SharedObject ReflMgr::New(std::string_view typeName, const std::vector<ObjectPtr>& args) {
-    return New(TypeID::getRaw(typeName), args);
+    return New(ReflMgr::GetType(typeName), args);
 }
 
 ObjectPtr ReflMgr::RawGetField(TypeID type, void* instance, std::string_view member) {
