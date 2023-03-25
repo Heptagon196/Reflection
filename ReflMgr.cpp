@@ -98,6 +98,39 @@ template<typename Ret> Ret* ReflMgr::WalkThroughInherits(std::function<void*(voi
     return nullptr;
 }
 
+bool MethodInfo::sameDeclareTo(const MethodInfo& other) const {
+    if (returnType != other.returnType || argsList.size() != other.argsList.size()) {
+        return false;
+    }
+    for (int i = 0; i < argsList.size(); i++) {
+        if (argsList[i] != other.argsList[i]) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void ReflMgr::AddMethodInfo(TypeID type, const std::string& name, MethodInfo info, bool overridePrevious) {
+    std::vector<MethodInfo>& lst = methodInfo[type][name];
+    for (MethodInfo& data : lst) {
+        if (data.sameDeclareTo(info)) {
+            if (overridePrevious) {
+                data = info;
+            } else {
+                std::cerr << "Error: same type of function already registered: " << info.returnType.getName() << " " << type.getName() << "::" << name << "(";
+                if (info.argsList.size() > 0) {
+                    std::cerr << info.argsList[0].getName();
+                }
+                for (int i = 1; i < info.argsList.size(); i++) {
+                    std::cerr << ", " << info.argsList[i].getName();
+                }
+                std::cerr << ")" << std::endl;
+            }
+        }
+    }
+    methodInfo[type][name].push_back(info);
+}
+
 template FieldInfo* ReflMgr::WalkThroughInherits(std::function<void*(void*)>* conv, TypeID id, std::function<FieldInfo*(TypeID)> func);
 template MethodInfo* ReflMgr::WalkThroughInherits(std::function<void*(void*)>* conv, TypeID id, std::function<MethodInfo*(TypeID)> func);
 
@@ -217,7 +250,7 @@ void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, TypeID returnType,
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    methodInfo[cls][std::string{name}].push_back(info.withRegister([func, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+    AddMethodInfo(cls, info.name, info.withRegister([func, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
             args.push_back(ObjectPtr{argsList[i], params[i]});
@@ -240,7 +273,7 @@ void ReflMgr::RawAddStaticMethod(TypeID cls, std::string_view name, TypeID retur
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    methodInfo[cls][std::string{name}].push_back(info.withRegister([func, argsList](void* instance, const std::vector<void*>& params) -> SharedObject {
+    AddMethodInfo(cls, info.name, info.withRegister([func, argsList](void* instance, const std::vector<void*>& params) -> SharedObject {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
             args.push_back(ObjectPtr{argsList[i], params[i]});

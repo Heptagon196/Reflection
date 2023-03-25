@@ -30,6 +30,7 @@ struct MethodInfo {
     TypeID returnType;
     ArgsTypeList argsList;
     MethodInfo& withRegister(std::function<FuncType> getRegister);
+    bool sameDeclareTo(const MethodInfo& other) const;
 };
 
 template<typename T>
@@ -67,6 +68,7 @@ class ReflMgr {
         template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);
         const FieldInfo* SafeGetFieldWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, bool showError = true);
         const MethodInfo* SafeGetMethodWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError = true);
+        void AddMethodInfo(TypeID type, const std::string& name, MethodInfo info, bool overridePrevious = true);
     public:
         ReflMgr(const ReflMgr&) = delete;
         ReflMgr(ReflMgr&&) = delete;
@@ -175,11 +177,7 @@ class ReflMgr {
         void AddMethod(Ret (Type::* func)(Args...) end, MethodInfo info) {                                                      \
             info.returnType = TypeID::get<Ret>();                                                                               \
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};                                                               \
-            methodInfo[TypeID::get<Type>()][info.name].push_back(                                                               \
-                info.withRegister(                                                                                              \
-                    GetMethodRegisterFunc(func)                                                                                 \
-                )                                                                                                               \
-            );                                                                                                                  \
+            AddMethodInfo(TypeID::get<Type>(), info.name, info.withRegister(GetMethodRegisterFunc(func)));                      \
         }                                                                                                                       \
         template<typename Ret, typename Type, typename... Args>                                                                 \
         void AddMethod(Ret (Type::* func)(Args...) end, std::string_view name) {                                                \
@@ -190,17 +188,13 @@ class ReflMgr {
         void AddMethod(std::function<Ret(Type*, Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[TypeID::get<Type>()][info.name].push_back(
-                info.withRegister(GetLambdaRegisterFunc(func))
-            );
+            AddMethodInfo(TypeID::get<Type>(), info.name, info.withRegister(GetLambdaRegisterFunc(func)));
         }
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, std::function<Ret(Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[type][std::string{info.name}].push_back(
-                info.withRegister(GetLambdaRegisterStaticFunc(func))
-            );
+            AddMethodInfo(type, info.name, info.withRegister(GetLambdaRegisterStaticFunc(func)));
         }
         template<typename Type, typename Ret, typename... Args>
         void AddMethod(std::function<Ret(Type*, Args...)> func, std::string_view name) {
@@ -333,11 +327,7 @@ class ReflMgr {
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
-            methodInfo[type][std::string{info.name}].push_back(
-                info.withRegister(
-                    GetStaticMethodRegisterFunc(std::forward<decltype(func)>(func))
-                )
-            );
+            AddMethodInfo(type, info.name, info.withRegister(GetStaticMethodRegisterFunc(std::forward<decltype(func)>(func))));
         }
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), std::string_view name) {
