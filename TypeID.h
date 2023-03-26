@@ -8,6 +8,7 @@
 
 class TypeID {
     private:
+        friend std::hash<TypeID>;
         size_t hash;
         std::string_view name;
         bool is_ref;
@@ -55,4 +56,11 @@ class TypeID {
         bool operator == (const TypeID& other) const;
         bool operator != (const TypeID& other) const;
         bool operator < (const TypeID& other) const;
+};
+
+namespace std {
+    template<> class hash<TypeID> {
+        public:
+            size_t operator () (const TypeID& id) const;
+    };
 };

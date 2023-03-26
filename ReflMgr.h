@@ -1,5 +1,4 @@
 #pragma once
-#include <map>
 #include <utility>
 #include <queue>
 #include <functional>
@@ -8,7 +7,7 @@
 #include "TypeID.h"
 #include "MetaMethods.h"
 
-using TagList = std::map<std::string, std::vector<std::string>>;
+using TagList = std::unordered_map<std::string, std::vector<std::string>>;
 
 struct FieldInfo {
     std::string name;
@@ -52,17 +51,17 @@ struct ClassInfo {
 class ReflMgr {
     private:
         ReflMgr() {}
-        std::map<TypeID, std::map<std::string, FieldInfo>> fieldInfo;
-        std::map<TypeID, std::map<std::string, std::vector<MethodInfo>>> methodInfo;
-        std::map<TypeID, ClassInfo> classInfo;
+        std::unordered_map<TypeID, std::unordered_map<std::string, FieldInfo>> fieldInfo;
+        std::unordered_map<TypeID, std::unordered_map<std::string, std::vector<MethodInfo>>> methodInfo;
+        std::unordered_map<TypeID, ClassInfo> classInfo;
         template<typename T, typename U>
         auto GetFieldRegisterFunc(T U::* p) {
             return [p](void* instance) {
                 return ObjectPtr{ TypeID::get<T>(), (void*)&((U*)(instance)->*p) };
             };
         }
-        template<typename T> T* SafeGetList(std::map<TypeID, T>& info, TypeID id);
-        template<typename T> T* SafeGet(std::map<TypeID, std::map<std::string, T>>& info, TypeID id, std::string_view name);
+        template<typename T> T* SafeGetList(std::unordered_map<TypeID, T>& info, TypeID id);
+        template<typename T> T* SafeGet(std::unordered_map<TypeID, std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name);
         bool CheckParams(MethodInfo info, const ArgsTypeList& list);
         const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args);
         template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);

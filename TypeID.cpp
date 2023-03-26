@@ -71,7 +71,7 @@ const std::vector<TypeID> TypeID::implicitConvertList = {
 #define DEF(type) \
     { TypeID::get<type>(), { DEFLIST2(type, DEF_SINGLE) }}
 
-static const std::map<TypeID, std::map<TypeID, std::function<std::shared_ptr<void>(void*)>>> convertFunc = {
+static const std::unordered_map<TypeID, std::unordered_map<TypeID, std::function<std::shared_ptr<void>(void*)>>> convertFunc = {
     DEFLIST(DEF)
 };
 
@@ -80,4 +80,8 @@ static const std::map<TypeID, std::map<TypeID, std::function<std::shared_ptr<voi
 
 std::shared_ptr<void> TypeID::implicitConvertInstance(void* instance, TypeID target) {
     return (convertFunc.at(*this).at(target))(instance);
+}
+
+size_t std::hash<TypeID>::operator() (const TypeID& id) const {
+    return id.hash;
 }

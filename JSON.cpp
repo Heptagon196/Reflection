@@ -64,7 +64,7 @@ static void printIndent(std::stringstream& out) {
 }
 
 template<typename T, typename V>
-static void printMap(std::stringstream& out, std::map<T, V>& val) {
+static void printMap(std::stringstream& out, std::unordered_map<T, V>& val) {
     out << "{";
     if (useIndent) {
         indent++;
@@ -107,7 +107,7 @@ static void printMap(std::stringstream& out, std::map<T, V>& val) {
 
 JSON JSON::NewMap() {
     JSON ret;
-    ret.obj = SharedObject::New<std::map<std::string, JSON>>();
+    ret.obj = SharedObject::New<std::unordered_map<std::string, JSON>>();
     return ret;
 }
 
@@ -126,7 +126,7 @@ void JSON::Init() {
         printVec(ss, *self);
         return ss.str();
     }), MetaMethods::operator_tostring);
-    ReflMgr::Instance().AddMethod<std::map<std::string, JSON>>(std::function([](std::map<std::string, JSON>* self) -> std::string {
+    ReflMgr::Instance().AddMethod<std::unordered_map<std::string, JSON>>(std::function([](std::unordered_map<std::string, JSON>* self) -> std::string {
         std::stringstream ss;
         printMap(ss, *self);
         return ss.str();
@@ -265,7 +265,7 @@ T ConvertTo(U orig) {
 SharedObject parse(Tokenizer& tk) {
     auto token = tk.getToken();
     if (token == Tokenizer::symbol('{')) {
-        auto obj = std::map<std::string, JSON>();
+        auto obj = std::unordered_map<std::string, JSON>();
         token = tk.getToken();
         while (token != Tokenizer::symbol('}')) {
             auto key = token.second;
@@ -325,7 +325,7 @@ std::ostream& operator << (std::ostream& out, const JSON& obj) {
 }
 
 JSON& JSON::operator[] (std::string_view idx) {
-    return obj.As<std::map<std::string, JSON>>()[(std::string)idx];
+    return obj.As<std::unordered_map<std::string, JSON>>()[(std::string)idx];
 }
 
 JSON& JSON::operator[] (int idx) {
@@ -352,7 +352,7 @@ void JSON::AddItem(JSON item) {
 }
 
 void JSON::AddItem(std::string key, JSON item) {
-    obj.As<std::map<std::string, JSON>>()[key] = item;
+    obj.As<std::unordered_map<std::string, JSON>>()[key] = item;
 }
 
 void JSON::RemoveItem(int pos) {
@@ -361,5 +361,5 @@ void JSON::RemoveItem(int pos) {
 }
 
 void JSON::RemoveItem(std::string key) {
-    obj.As<std::map<std::string, JSON>>().erase(key);
+    obj.As<std::unordered_map<std::string, JSON>>().erase(key);
 }

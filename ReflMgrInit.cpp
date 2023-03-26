@@ -45,8 +45,8 @@ static void printIndent(std::stringstream& out) {
     }
 }
 
-template<typename T, typename V>
-static void printMap(std::stringstream& out, const std::map<T, V>& val) {
+template<typename Map>
+static void printMap(std::stringstream& out, const Map& val) {
     out << "{";
     if (useIndent) {
         indent++;
@@ -156,6 +156,18 @@ namespace ReflMgrTool {
             }, tostring)                                                        \
         } while (0)
 
+#define DEFHASHMAP(key, value)                                                  \
+        do {                                                                    \
+            using type = std::unordered_map<key, value>;                        \
+            AutoRegister<type>();                                               \
+            AutoRegister<type::iterator>();                                     \
+            DEFSINGLE(type, {                                                   \
+                std::stringstream ss;                                           \
+                printMap(ss, *self);                                            \
+                return (std::string)(ss.str());                                 \
+            }, tostring)                                                        \
+        } while (0)
+
 #define DEFMAP_FOR(type)                                \
         DEFMAP(type, int);                              \
         DEFMAP(type, float);                            \
@@ -163,11 +175,22 @@ namespace ReflMgrTool {
         DEFMAP(type, SharedObject);                     \
         DEFMAP(type, ObjectPtr)
 
+#define DEFHASHMAP_FOR(type)                            \
+        DEFHASHMAP(type, int);                          \
+        DEFHASHMAP(type, float);                        \
+        DEFHASHMAP(type, std::string);                  \
+        DEFHASHMAP(type, SharedObject);                 \
+        DEFHASHMAP(type, ObjectPtr)
+
         DEFMAP_FOR(int);
         DEFMAP_FOR(float);
         DEFMAP_FOR(std::string);
         DEFMAP_FOR(SharedObject);
         DEFMAP_FOR(ObjectPtr);
+
+        DEFHASHMAP_FOR(int);
+        DEFHASHMAP_FOR(float);
+        DEFHASHMAP_FOR(std::string);
 
 #undef DEFMAP_FOR
 #undef DEFMAP
