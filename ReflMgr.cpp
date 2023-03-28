@@ -162,14 +162,14 @@ bool ReflMgr::HasClassInfo(TypeID type) {
 }
 
 static inline std::string_view removeNameRefAndConst(std::string_view name) {
-    int start = 0, end = name.length() - 1;
+    int start = 0, end = name.length();
     if (name.length() > 6 && name.substr(0, 6) == "const ") {
         start += 6;
     }
     if (name[name.length() - 1] == '&') {
         end--;
     }
-    return name.substr(start, end - start);
+    return name.substr(start, std::max(0, end - start));
 }
 
 SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
