@@ -183,14 +183,14 @@ ObjectPtr ReflMgr::RawGetField(TypeID type, void* instance, std::string_view mem
     return p->getRegister(conv(instance));
 }
 
-std::function<SharedObject(void*, std::vector<void*>)> ReflMgr::GetInvokeFunc(TypeID type, std::string_view member, ArgsTypeList list) {
+std::function<void(void*, std::vector<void*>, SharedObject& ret)> ReflMgr::GetInvokeFunc(TypeID type, std::string_view member, ArgsTypeList list) {
     std::function<void*(void*)> conv = [](void* orig) { return orig; };
     auto* info = SafeGetMethodWithInherit(&conv, type, member, list);
     if (info == nullptr || info->name == "") {
         return nullptr;
     }
-    return [info, conv](void* instance, std::vector<void*> params) {
-        return info->getRegister(conv(instance), params);
+    return [info, conv](void* instance, std::vector<void*> params, SharedObject& ret) {
+        info->getRegister(conv(instance), params, ret);
     };
 }
 
@@ -200,7 +200,9 @@ SharedObject ReflMgr::RawInvoke(TypeID type, void* instance, std::string_view me
     if (info == nullptr || info->name == "") {
         return SharedObject::Null;
     }
-    return info->getRegister(conv(instance), params);
+    auto ret = info->newRet();
+    info->getRegister(conv(instance), params, ret);
+    return ret;
 }
 
 void ReflMgr::AddAliasClass(std::string_view from, std::string_view to) {
@@ -250,12 +252,13 @@ void ReflMgr::RawAddMethod(TypeID cls, std::string_view name, TypeID returnType,
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    AddMethodInfo(cls, info.name, info.withRegister([func, argsList, cls](void* instance, const std::vector<void*>& params) -> SharedObject {
+    info.newRet = []() { return SharedObject(); };
+    AddMethodInfo(cls, info.name, info.withRegister([func, argsList, cls](void* instance, const std::vector<void*>& params, SharedObject& ret) {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
             args.push_back(ObjectPtr{argsList[i], params[i]});
         }
-        return func(ObjectPtr{cls, instance}, args);
+        ret = func(ObjectPtr{cls, instance}, args);
     }));
 }
 
@@ -273,12 +276,13 @@ void ReflMgr::RawAddStaticMethod(TypeID cls, std::string_view name, TypeID retur
     MethodInfo info{ std::string{name} };
     info.returnType = returnType;
     info.argsList = argsList;
-    AddMethodInfo(cls, info.name, info.withRegister([func, argsList](void* instance, const std::vector<void*>& params) -> SharedObject {
+    info.newRet = []() { return SharedObject(); };
+    AddMethodInfo(cls, info.name, info.withRegister([func, argsList](void* instance, const std::vector<void*>& params, SharedObject& ret) {
         std::vector<ObjectPtr> args;
         for (int i = 0; i < params.size(); i++) {
             args.push_back(ObjectPtr{argsList[i], params[i]});
         }
-        return func(args);
+        ret = func(args);
     }));
 }
 

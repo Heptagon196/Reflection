@@ -139,7 +139,11 @@ namespace ReflMgrTool {
         DEFVEC(int);
         DEFVEC(float);
         DEFVEC(std::string);
-        DEFVEC_BASE(std::string, char);
+        AutoRegister<std::string::iterator>();
+        DEFSINGLE(std::string, {
+            return std::string(*self);
+        }, tostring);
+        DEFCTOR(std::string);
 
         ReflMgrTool::AutoRegister<std::string_view>();
         ReflMgrTool::AutoRegister<std::string_view::iterator>();

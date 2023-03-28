@@ -26,6 +26,18 @@ struct MethodTraits<Ret(Class::*)(Args...)> {
     using ArgList = TypeList<Args...>;
 };
 
+template<typename Ret, typename... Args>
+struct MethodTraits<Ret(*)(Args...)> {
+    using ReturnType = Ret;
+    using ArgList = TypeList<Args...>;
+};
+
+template<typename Ret, typename Class, typename... Args>
+struct MethodTraits<Ret(Class::*)(Args...) const> {
+    using ReturnType = Ret;
+    using ArgList = TypeList<Args...>;
+};
+
 template<typename Ret, typename U, typename... Args>
 struct MethodType {
     using Type = Ret (U::*)(Args...);

@@ -177,7 +177,8 @@ void numberTest() {
     int a = 1;
     double b = 2;
     int c = 3;
-    f((void*)&Namespace::Global, std::vector<void*>{&a, &b, &c});
+    SharedObject ret;
+    f((void*)&Namespace::Global, std::vector<void*>{&a, &b, &c}, ret);
 }
 
 struct Info {

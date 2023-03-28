@@ -22,10 +22,11 @@ struct ArgsTypeList : std::vector<TypeID> {
 };
 
 struct MethodInfo {
-    using FuncType = SharedObject(void*, const std::vector<void*>&);
+    using FuncType = void(void*, const std::vector<void*>&, SharedObject&);
     std::string name;
     TagList tags;
     std::function<FuncType> getRegister;
+    std::function<SharedObject()> newRet;
     TypeID returnType;
     ArgsTypeList argsList;
     MethodInfo& withRegister(std::function<FuncType> getRegister);
@@ -126,35 +127,50 @@ class ReflMgr {
         ObjectPtr GetField(T instance, std::string_view member) {
             return RawGetField(instance.GetType(), instance.GetRawPtr(), member);
         }
+    private:
+        template<typename Func>
+        auto GetNewRet(Func func) {
+            using Ret = typename MethodTraits<Func>::ReturnType;
+            if constexpr (std::is_same<void, Ret>() || std::is_reference<Ret>()) {
+                return []() { return SharedObject(); };
+            } else {
+                return []() { return SharedObject::New<Ret>(); };
+            }
+        }
+        template<typename Ret, typename... Args>
+        auto GetNewRet(std::function<Ret(Args...)> func) {
+            if constexpr (std::is_same<void, Ret>() || std::is_reference<Ret>()) {
+                return []() { return SharedObject(); };
+            } else {
+                return []() { return SharedObject::New<Ret>(); };
+            }
+        }
+    public:
 #define DEF_METHOD_REG(end)                                                                                                     \
     private:                                                                                                                    \
         template<typename Ret, typename Type, typename... Args, size_t... N>                                                    \
         auto GetMethodRegisterFunc(Ret (Type::* p)(Args...) end, std::index_sequence<N...> is) {                                \
-            return [p](void* instance, const std::vector<void*>& params) -> SharedObject {                                      \
-                return SharedObject{ TypeID::get<Ret>(),                                                                        \
-                    std::shared_ptr<void>(                                                                                      \
-                        new Ret(((Type*)instance->*p)(                                                                          \
-                            (                                                                                                   \
-                                *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))                     \
-                            )...                                                                                                \
-                        ))                                                                                                      \
-                    )                                                                                                           \
-                };                                                                                                              \
+            return [p](void* instance, const std::vector<void*>& params, SharedObject& ret) {                                   \
+                ret.As<Ret>() =                                                                                                 \
+                    ((Type*)instance->*p)(                                                                                      \
+                        (                                                                                                       \
+                            *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))                         \
+                        )...                                                                                                    \
+                    );                                                                                                          \
             };                                                                                                                  \
         }                                                                                                                       \
         template<typename Type, typename... Args, size_t... N>                                                                  \
         auto GetMethodRegisterFunc(void (Type::* p)(Args...) end, std::index_sequence<N...> is) {                               \
-            return [p](void* instance, const std::vector<void*>& params) -> SharedObject {                                      \
+            return [p](void* instance, const std::vector<void*>& params, SharedObject& ret) {                                   \
                 ((Type*)instance->*p)(                                                                                          \
                     (*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N])))...                            \
                 );                                                                                                              \
-                return SharedObject{TypeID::get<void>(), nullptr};                                                              \
             };                                                                                                                  \
         }                                                                                                                       \
         template<typename Ret, typename Type, typename... Args, size_t... N>                                                    \
         auto GetMethodRegisterFunc(Ret& (Type::* p)(Args...) end, std::index_sequence<N...> is) {                               \
-            return [p](void* instance, const std::vector<void*>& params) -> SharedObject {                                      \
-                return SharedObject{ TypeID::get<Ret&>(),                                                                       \
+            return [p](void* instance, const std::vector<void*>& params, SharedObject& ret) {                                   \
+                ret = SharedObject{ TypeID::get<Ret&>(),                                                                        \
                     (void*)(                                                                                                    \
                         &(((Type*)instance->*p)(                                                                                \
                             (                                                                                                   \
@@ -176,6 +192,7 @@ class ReflMgr {
         void AddMethod(Ret (Type::* func)(Args...) end, MethodInfo info) {                                                      \
             info.returnType = TypeID::get<Ret>();                                                                               \
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};                                                               \
+            info.newRet = GetNewRet(func);                                                                                      \
             AddMethodInfo(TypeID::get<Type>(), info.name, info.withRegister(GetMethodRegisterFunc(func)));                      \
         }                                                                                                                       \
         template<typename Ret, typename Type, typename... Args>                                                                 \
@@ -187,12 +204,14 @@ class ReflMgr {
         void AddMethod(std::function<Ret(Type*, Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
+            info.newRet = GetNewRet(func);
             AddMethodInfo(TypeID::get<Type>(), info.name, info.withRegister(GetLambdaRegisterFunc(func)));
         }
         template<typename Ret, typename... Args>
         void AddStaticMethod(TypeID type, std::function<Ret(Args...)> func, MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
+            info.newRet = GetNewRet(func);
             AddMethodInfo(type, info.name, info.withRegister(GetLambdaRegisterStaticFunc(func)));
         }
         template<typename Type, typename Ret, typename... Args>
@@ -211,25 +230,21 @@ class ReflMgr {
     private:
         template<typename Type, typename Ret, typename... Args, size_t... N>
         auto GetLambdaRegisterFunc(std::function<Ret(Type*, Args...)> func, std::index_sequence<N...> is) {
-            return [func](void* instance, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret>(),
-                    std::shared_ptr<void>(
-                        new Ret(func((Type*)instance, *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
-                    )
-                };
+            return [func](void* instance, const std::vector<void*>& params, SharedObject& ret) {
+                ret.As<Ret>() = func((Type*)instance, *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
             };
         }
         template<typename Type, typename... Args, size_t... N>
         auto GetLambdaRegisterFunc(std::function<void(Type*, Args...)> func, std::index_sequence<N...> is) {
-            return [func](void* instance, const std::vector<void*>& params) -> SharedObject {
+            return [func](void* instance, const std::vector<void*>& params, SharedObject& ret) {
                 func((Type*)instance, *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
-                return SharedObject{ TypeID::get<void>(), nullptr };
+                ret = SharedObject();
             };
         }
         template<typename Type, typename Ret, typename... Args, size_t... N>
         auto GetLambdaRegisterFunc(std::function<Ret&(Type*, Args...)> func, std::index_sequence<N...> is) {
-            return [func](void* instance, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret&>(),
+            return [func](void* instance, const std::vector<void*>& params, SharedObject& ret) {
+                ret = SharedObject{ TypeID::get<Ret&>(),
                     (void*)(
                         &(func((Type*)instance, *(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
                     )
@@ -244,25 +259,20 @@ class ReflMgr {
         }
         template<typename Ret, typename... Args, size_t... N>
         auto GetLambdaRegisterStaticFunc(std::function<Ret(Args...)> func, std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret>(),
-                    std::shared_ptr<void>(
-                        new Ret(func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
-                    )
-                };
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
+                ret.As<Ret>() = func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
             };
         }
         template<typename... Args, size_t... N>
         auto GetLambdaRegisterStaticFunc(std::function<void(Args...)> func, std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
                 func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
-                return SharedObject{ TypeID::get<void>(), nullptr };
             };
         }
         template<typename Ret, typename... Args, size_t... N>
         auto GetLambdaRegisterStaticFunc(std::function<Ret&(Args...)> func, std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret&>(),
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
+                ret = SharedObject{ TypeID::get<Ret&>(),
                     (void*)(
                         &(func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
                     )
@@ -277,25 +287,20 @@ class ReflMgr {
         }
         template<typename Ret, typename... Args, size_t... N>
         auto GetStaticMethodRegisterFunc(Ret (*func)(Args...), std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret>(),
-                    std::shared_ptr<void>(
-                        new Ret(func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
-                    )
-                };
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
+                ret.As<Ret>() = func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
             };
         }
         template<typename... Args, size_t... N>
         auto GetStaticMethodRegisterFunc(void (*func)(Args...), std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
                 func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...);
-                return SharedObject{ TypeID::get<void>(), nullptr };
             };
         }
         template<typename Ret, typename... Args, size_t... N>
         auto GetStaticMethodRegisterFunc(Ret& (*func)(Args...), std::index_sequence<N...> is) {
-            return [func](void*, const std::vector<void*>& params) -> SharedObject {
-                return SharedObject{ TypeID::get<Ret&>(),
+            return [func](void*, const std::vector<void*>& params, SharedObject& ret) {
+                ret = SharedObject{ TypeID::get<Ret&>(),
                     (void*)(
                         &(func(*(reinterpret_cast<typename std::remove_reference<Args>::type*>(params[N]))...))
                     )
@@ -326,6 +331,7 @@ class ReflMgr {
         void AddStaticMethod(TypeID type, Ret (*func)(Args...), MethodInfo info) {
             info.returnType = TypeID::get<Ret>();
             info.argsList = ArgsTypeList{TypeID::get<Args>()...};
+            info.newRet = GetNewRet(func);
             AddMethodInfo(type, info.name, info.withRegister(GetStaticMethodRegisterFunc(std::forward<decltype(func)>(func))));
         }
         template<typename Ret, typename... Args>
@@ -333,7 +339,7 @@ class ReflMgr {
             MethodInfo info{ std::string{name} };
             AddStaticMethod(type, func, info);
         }
-        std::function<SharedObject(void*, std::vector<void*>)> GetInvokeFunc(TypeID type, std::string_view member, ArgsTypeList list);
+        std::function<void(void*, std::vector<void*>, SharedObject&)> GetInvokeFunc(TypeID type, std::string_view member, ArgsTypeList list);
         SharedObject RawInvoke(TypeID type, void* instance, std::string_view member, ArgsTypeList list, std::vector<void*> params);
         template<typename T = ObjectPtr, typename U>
         SharedObject Invoke(U instance, std::string_view method, const std::vector<T>& params, bool showError = true) {
@@ -346,10 +352,12 @@ class ReflMgr {
             auto* info = SafeGetMethodWithInherit(&conv, instance.GetType(), method, list, showError);
             ptr = conv(ptr);
             if (info == nullptr || info->name == "") {
-                return SharedObject::Null;
+                return SharedObject();
             }
             std::vector<std::shared_ptr<void>> temp;
-            return info->getRegister(ptr, ConvertParams(params, *info, temp));
+            auto ret = info->newRet();
+            info->getRegister(ptr, ConvertParams(params, *info, temp), ret);
+            return ret;
         }
         template<typename T = ObjectPtr>
         SharedObject InvokeStatic(TypeID type, std::string_view method, const std::vector<T>& params, bool showError = true) {
@@ -360,10 +368,12 @@ class ReflMgr {
             std::function<void*(void*)> conv = [](void* orig) { return orig; };
             auto* info = SafeGetMethodWithInherit(&conv, type, method, list, showError);
             if (info == nullptr) {
-                return SharedObject::Null;
+                return SharedObject();
             }
             std::vector<std::shared_ptr<void>> temp;
-            return info->getRegister(nullptr, ConvertParams(params, *info, temp));
+            auto ret = info->newRet();
+            info->getRegister(nullptr, ConvertParams(params, *info, temp), ret);
+            return ret;
         }
         template<typename D, typename B>
         void SetInheritance() {
