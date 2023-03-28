@@ -11,6 +11,7 @@ class TypeID {
         friend std::hash<TypeID>;
         size_t hash;
         std::string_view name;
+        std::string_view cleanName;
         bool is_ref;
         bool is_const;
         static const std::vector<TypeID> implicitConvertList;
@@ -41,7 +42,7 @@ class TypeID {
     public:
         TypeID() : hash(0) {}
         bool isNull() const;
-        constexpr TypeID(std::string_view showName, std::string_view trueName, bool is_ref, bool is_const) : hash(calculateHash(trueName)), name(showName), is_ref(is_ref), is_const(is_const) {}
+        constexpr TypeID(std::string_view showName, std::string_view trueName, bool is_ref, bool is_const) : hash(calculateHash(trueName)), name(showName), cleanName(trueName), is_ref(is_ref), is_const(is_const) {}
         template<typename T>
         static constexpr TypeID get() {
             return TypeID(TypeToString<T>(), TypeToString<typename std::remove_const<typename std::remove_reference<T>::type>::type>(), std::is_reference<T>(), std::is_const<T>());
@@ -51,6 +52,7 @@ class TypeID {
         }
         size_t getHash() const;
         std::string_view getName() const;
+        std::string_view getCleanName() const;
         bool canBeAppliedTo(const TypeID& other) const;
         std::shared_ptr<void> implicitConvertInstance(void* instance, TypeID target);
         bool operator == (const TypeID& other) const;

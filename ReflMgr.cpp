@@ -162,7 +162,7 @@ bool ReflMgr::HasClassInfo(TypeID type) {
 }
 
 SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
-    auto& func = classInfo[type].newObject;
+    auto& func = classInfo[TypeID::getRaw(type.getCleanName())].newObject;
     if (func == 0) {
         std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
         return SharedObject::Null;

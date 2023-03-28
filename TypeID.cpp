@@ -31,6 +31,10 @@ std::string_view TypeID::getName() const {
     return name;
 }
 
+std::string_view TypeID::getCleanName() const {
+    return cleanName;
+}
+
 bool TypeID::canBeAppliedTo(const TypeID& other) const {
     return (checkRefAndConst(other) && (hash == other.hash || canImplicitlyConvertTo(other)));
 }
