@@ -32,18 +32,18 @@ TypeID ReflMgr::GetType(std::string_view clsName) {
     return target;
 }
 
-template<typename T> T* ReflMgr::SafeGetList(std::unordered_map<TypeID, T>& info, TypeID id) {
+template<typename T> T* ReflMgr::SafeGetList(TypeIDMap<T>& info, TypeID id) {
     if (info.find(id) == info.end()) {
         return nullptr;
     }
     return &info[id];
 }
 
-template ClassInfo* ReflMgr::SafeGetList(std::unordered_map<TypeID, ClassInfo>& info, TypeID id);
-template std::unordered_map<std::string, std::vector<MethodInfo>>* ReflMgr::SafeGetList(std::unordered_map<TypeID, std::unordered_map<std::string, std::vector<MethodInfo>>>& info, TypeID id);
-template std::unordered_map<std::string, FieldInfo>* ReflMgr::SafeGetList(std::unordered_map<TypeID, std::unordered_map<std::string, FieldInfo>>& info, TypeID id);
+template ClassInfo* ReflMgr::SafeGetList(TypeIDMap<ClassInfo>& info, TypeID id);
+template std::unordered_map<std::string, std::vector<MethodInfo>>* ReflMgr::SafeGetList(TypeIDMap<std::unordered_map<std::string, std::vector<MethodInfo>>>& info, TypeID id);
+template std::unordered_map<std::string, FieldInfo>* ReflMgr::SafeGetList(TypeIDMap<std::unordered_map<std::string, FieldInfo>>& info, TypeID id);
 
-template<typename T> T* ReflMgr::SafeGet(std::unordered_map<TypeID, std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name) {
+template<typename T> T* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name) {
     auto* lst = SafeGetList(info, id);
     if (lst == nullptr) {
         return nullptr;
@@ -54,8 +54,8 @@ template<typename T> T* ReflMgr::SafeGet(std::unordered_map<TypeID, std::unorder
     return &(*lst)[std::string{name}];
 }
 
-template std::vector<MethodInfo>* ReflMgr::SafeGet(std::unordered_map<TypeID, std::unordered_map<std::string, std::vector<MethodInfo>>>& info, TypeID id, std::string_view name);
-template FieldInfo* ReflMgr::SafeGet(std::unordered_map<TypeID, std::unordered_map<std::string, FieldInfo>>& info, TypeID id, std::string_view name);
+template std::vector<MethodInfo>* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, std::vector<MethodInfo>>>& info, TypeID id, std::string_view name);
+template FieldInfo* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, FieldInfo>>& info, TypeID id, std::string_view name);
 
 bool ReflMgr::CheckParams(MethodInfo info, const ArgsTypeList& lst) {
     if (info.argsList.size() != lst.size()) {

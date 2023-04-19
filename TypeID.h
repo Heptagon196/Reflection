@@ -64,3 +64,12 @@ namespace std {
             size_t operator () (const TypeID& id) const;
     };
 };
+
+struct TypeIDHashEqual {
+    bool operator() (const TypeID& lhr, const TypeID& rhs) const {
+        return lhr.getHash() == rhs.getHash();
+    }
+};
+
+template<typename T>
+using TypeIDMap = std::unordered_map<TypeID, T, std::hash<TypeID>, TypeIDHashEqual>;

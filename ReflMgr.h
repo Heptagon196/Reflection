@@ -53,17 +53,17 @@ class ReflMgr {
     private:
         ReflMgr() {}
         std::string errorMsgPrefix;
-        std::unordered_map<TypeID, std::unordered_map<std::string, FieldInfo>> fieldInfo;
-        std::unordered_map<TypeID, std::unordered_map<std::string, std::vector<MethodInfo>>> methodInfo;
-        std::unordered_map<TypeID, ClassInfo> classInfo;
+        TypeIDMap<std::unordered_map<std::string, FieldInfo>> fieldInfo;
+        TypeIDMap<std::unordered_map<std::string, std::vector<MethodInfo>>> methodInfo;
+        TypeIDMap<ClassInfo> classInfo;
         template<typename T, typename U>
         auto GetFieldRegisterFunc(T U::* p) {
             return [p](void* instance) {
                 return ObjectPtr{ TypeID::get<T>(), (void*)&((U*)(instance)->*p) };
             };
         }
-        template<typename T> T* SafeGetList(std::unordered_map<TypeID, T>& info, TypeID id);
-        template<typename T> T* SafeGet(std::unordered_map<TypeID, std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name);
+        template<typename T> T* SafeGetList(TypeIDMap<T>& info, TypeID id);
+        template<typename T> T* SafeGet(TypeIDMap<std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name);
         bool CheckParams(MethodInfo info, const ArgsTypeList& list);
         const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args);
         template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);
