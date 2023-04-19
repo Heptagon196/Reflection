@@ -52,6 +52,7 @@ struct ClassInfo {
 class ReflMgr {
     private:
         ReflMgr() {}
+        std::string errorMsgPrefix;
         std::unordered_map<TypeID, std::unordered_map<std::string, FieldInfo>> fieldInfo;
         std::unordered_map<TypeID, std::unordered_map<std::string, std::vector<MethodInfo>>> methodInfo;
         std::unordered_map<TypeID, ClassInfo> classInfo;
@@ -73,6 +74,7 @@ class ReflMgr {
         ReflMgr(const ReflMgr&) = delete;
         ReflMgr(ReflMgr&&) = delete;
         ReflMgr(ReflMgr&) = delete;
+        void SetErrorMsgPrefix(const std::string& msg);
         static ReflMgr& Instance();
         static TypeID GetType(std::string_view clsName);
         bool HasClassInfo(TypeID type);
@@ -400,10 +402,11 @@ class ReflMgr {
         }
         void AddAliasClass(std::string_view from, std::string_view to);
         void AddVirtualClass(std::string_view cls, std::function<SharedObject(const std::vector<ObjectPtr>&)> ctor, TagList tagList = {});
-        const TagList& GetClassTag(TypeID cls);
-        const TagList& GetFieldTag(TypeID cls, std::string_view name);
-        const TagList& GetMethodInfo(TypeID cls, std::string_view name);
-        const TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
+        void AddVirtualInheritance(std::string_view cls, std::string_view inherit);
+        TagList& GetClassTag(TypeID cls);
+        TagList& GetFieldTag(TypeID cls, std::string_view name);
+        TagList& GetMethodInfo(TypeID cls, std::string_view name);
+        TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
     public:
         void RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
         void RawAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func);

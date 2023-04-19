@@ -15,6 +15,11 @@ ReflMgr& ReflMgr::Instance() {
     return instance;
 }
 
+#define ERROR std::cerr << errorMsgPrefix
+void ReflMgr::SetErrorMsgPrefix(const std::string& msg) {
+    errorMsgPrefix = msg;
+}
+
 TypeID ReflMgr::GetType(std::string_view clsName) {
     auto& instance = ReflMgr::Instance();
     TypeID target = TypeID::getRaw(clsName);
@@ -117,14 +122,14 @@ void ReflMgr::AddMethodInfo(TypeID type, const std::string& name, MethodInfo inf
             if (overridePrevious) {
                 data = info;
             } else {
-                std::cerr << "Error: same type of function already registered: " << info.returnType.getName() << " " << type.getName() << "::" << name << "(";
+                ERROR << "Error: same type of function already registered: " << info.returnType.getName() << " " << type.getName() << "::" << name << "(";
                 if (info.argsList.size() > 0) {
-                    std::cerr << info.argsList[0].getName();
+                    ERROR << info.argsList[0].getName();
                 }
                 for (int i = 1; i < info.argsList.size(); i++) {
-                    std::cerr << ", " << info.argsList[i].getName();
+                    ERROR << ", " << info.argsList[i].getName();
                 }
-                std::cerr << ")" << std::endl;
+                ERROR << ")" << std::endl;
             }
         }
     }
@@ -137,7 +142,7 @@ template MethodInfo* ReflMgr::WalkThroughInherits(std::function<void*(void*)>* c
 const FieldInfo* ReflMgr::SafeGetFieldWithInherit(std::function<void*(void*)>* conv, TypeID id, std::string_view name, bool showError) {
     auto ret = WalkThroughInherits(conv, id, std::function([&](TypeID type) { return SafeGet(fieldInfo, type, name); }));
     if (ret == nullptr && showError) {
-        std::cerr << "Error: no matching field found: " << id.getName() << "::" << name << std::endl;
+        ERROR << "Error: no matching field found: " << id.getName() << "::" << name << std::endl;
     }
     return ret;
 }
@@ -145,14 +150,14 @@ const FieldInfo* ReflMgr::SafeGetFieldWithInherit(std::function<void*(void*)>* c
 const MethodInfo* ReflMgr::SafeGetMethodWithInherit(std::function<void*(void*)>* conv, TypeID id, std::string_view name, const ArgsTypeList& args, bool showError) {
     auto ret = WalkThroughInherits(conv, id, std::function([&](TypeID type) { return SafeGet(type, name, args); }));
     if (ret == nullptr && showError) {
-        std::cerr << "Error: no matching method found: " << id.getName() << "::" << name << "(";
+        ERROR << "Error: no matching method found: " << id.getName() << "::" << name << "(";
         if (args.size() > 0) {
-            std::cerr << args[0].getName();
+            ERROR << args[0].getName();
             for (int i = 1; i < args.size(); i++) {
-                std::cerr << ", " << args[i].getName();
+                ERROR << ", " << args[i].getName();
             }
         }
-        std::cerr << ")" << std::endl;
+        ERROR << ")" << std::endl;
     }
     return ret;
 }
@@ -175,7 +180,7 @@ static inline std::string_view removeNameRefAndConst(std::string_view name) {
 SharedObject ReflMgr::New(TypeID type, const std::vector<ObjectPtr>& args) {
     auto& func = classInfo[TypeID::getRaw(removeNameRefAndConst(type.getName()))].newObject;
     if (func == 0) {
-        std::cerr << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
+        ERROR << "Error: unable to init an unregistered class: " << type.getName() << std::endl;
         return SharedObject::Null;
     }
     return func(args);
@@ -226,16 +231,24 @@ void ReflMgr::AddVirtualClass(std::string_view cls, std::function<SharedObject(c
     classInfo[type].tags = tagList;
 }
 
-const TagList& ReflMgr::GetClassTag(TypeID cls) {
+void ReflMgr::AddVirtualInheritance(std::string_view cls, std::string_view inherit) {
+    ClassInfo& info = classInfo[TypeID::getRaw(cls)];
+    info.parents.push_back(TypeID::getRaw(inherit));
+    info.cast.push_back([](void* derived) -> void* {
+        return derived;
+    });
+}
+
+TagList& ReflMgr::GetClassTag(TypeID cls) {
     return classInfo[cls].tags;
 }
-const TagList& ReflMgr::GetFieldTag(TypeID cls, std::string_view name) {
+TagList& ReflMgr::GetFieldTag(TypeID cls, std::string_view name) {
     return fieldInfo[cls][std::string{name}].tags;
 }
-const TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name) {
+TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name) {
     return methodInfo[cls][std::string{name}][0].tags;
 }
-const TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
+TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
     auto& infos = methodInfo[cls][std::string{name}];
     for (auto& info : infos) {
         if (CheckParams(info, args)) {
