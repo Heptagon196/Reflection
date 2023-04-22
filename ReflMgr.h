@@ -67,7 +67,7 @@ class ReflMgr {
         template<typename T> T* SafeGetList(TypeIDMap<T>& info, TypeID id);
         template<typename T> T* SafeGet(TypeIDMap<std::unordered_map<std::string, T>>& info, TypeID id, std::string_view name);
         template<typename MethodInfoType>
-        void CheckParams(MethodInfoType& info, const ArgsTypeList& list, MethodInfoType** rec);
+        void CheckParams(MethodInfoType& info, const ArgsTypeList& list, MethodInfoType** rec, bool showError = false);
         const MethodInfo* SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args);
         template<typename Ret> Ret* WalkThroughInherits(std::function<void*(void*)>* instanceConv, TypeID id, std::function<Ret*(TypeID)> func);
         const FieldInfo* SafeGetFieldWithInherit(std::function<void*(void*)>* instanceConv, TypeID id, std::string_view name, bool showError = true);
@@ -366,9 +366,6 @@ class ReflMgr {
             std::vector<std::shared_ptr<void>> temp;
             auto ret = info->newRet();
             info->getRegister(ptr, ConvertParams(params, *info, temp), ret);
-            if (ret.GetType().getHash() == TypeID::get<ReflMgr::Any>().getHash()) {
-                return ret.template As<ReflMgr::Any>().ToSharedPtr();
-            }
             return ret;
         }
         template<typename T = ObjectPtr>
@@ -385,9 +382,6 @@ class ReflMgr {
             std::vector<std::shared_ptr<void>> temp;
             auto ret = info->newRet();
             info->getRegister(nullptr, ConvertParams(params, *info, temp), ret);
-            if (ret.GetType().getHash() == TypeID::get<ReflMgr::Any>().getHash()) {
-                return ret.template As<ReflMgr::Any>().ToSharedPtr();
-            }
             return ret;
         }
         template<typename D, typename B>

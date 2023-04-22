@@ -58,7 +58,7 @@ template std::vector<MethodInfo>* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<
 template FieldInfo* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, FieldInfo>>& info, TypeID id, std::string_view name);
 
 template<typename MethodInfoType>
-void ReflMgr::CheckParams(MethodInfoType& info, const ArgsTypeList& lst, MethodInfoType** rec) {
+void ReflMgr::CheckParams(MethodInfoType& info, const ArgsTypeList& lst, MethodInfoType** rec, bool showError) {
     if (info.argsList.size() != lst.size()) {
         return;
     }
@@ -73,7 +73,18 @@ void ReflMgr::CheckParams(MethodInfoType& info, const ArgsTypeList& lst, MethodI
             generics = true;
         }
         if (!lst[i].canBeAppliedTo(info.argsList[i]) && !canUseGenerics) {
-            std::cout << lst[i].getName() << " cannot apply to " << info.argsList[i].getName() << std::endl;
+            if (showError) {
+                ERROR << "Candidate: ";
+                ERROR << info.name << "(";
+                if (info.argsList.size() > 0) {
+                    ERROR << info.argsList[0].getName();
+                }
+                for (int i = 1; i < info.argsList.size(); i++) {
+                    ERROR << ", " << info.argsList[i].getName();
+                }
+                ERROR << "): " << std::endl;
+                ERROR << lst[i].getName() << " cannot apply to " << info.argsList[i].getName() << std::endl;
+            }
             return;
         }
     }
@@ -86,8 +97,8 @@ void ReflMgr::CheckParams(MethodInfoType& info, const ArgsTypeList& lst, MethodI
     }
 }
 
-template void ReflMgr::CheckParams(MethodInfo& info, const ArgsTypeList& lst, MethodInfo** rec);
-template void ReflMgr::CheckParams(MethodInfo const& info, const ArgsTypeList& lst, MethodInfo const** rec);
+template void ReflMgr::CheckParams(MethodInfo& info, const ArgsTypeList& lst, MethodInfo** rec, bool showError);
+template void ReflMgr::CheckParams(MethodInfo const& info, const ArgsTypeList& lst, MethodInfo const** rec, bool showError);
 
 const MethodInfo* ReflMgr::SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args) {
     auto* lst = SafeGet(methodInfo, id, name);
@@ -102,6 +113,9 @@ const MethodInfo* ReflMgr::SafeGet(TypeID id, std::string_view name, const ArgsT
         if (rec[i] != nullptr) {
             return rec[i];
         }
+    }
+    for (const auto& info : *lst) {
+        CheckParams(info, args, rec, true);
     }
     return nullptr;
 }
