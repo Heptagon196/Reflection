@@ -57,26 +57,50 @@ template<typename T> T* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::strin
 template std::vector<MethodInfo>* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, std::vector<MethodInfo>>>& info, TypeID id, std::string_view name);
 template FieldInfo* ReflMgr::SafeGet(TypeIDMap<std::unordered_map<std::string, FieldInfo>>& info, TypeID id, std::string_view name);
 
-bool ReflMgr::CheckParams(MethodInfo info, const ArgsTypeList& lst) {
+template<typename MethodInfoType>
+void ReflMgr::CheckParams(MethodInfoType& info, const ArgsTypeList& lst, MethodInfoType** rec) {
     if (info.argsList.size() != lst.size()) {
-        return false;
+        return;
     }
+    bool same = true;
+    bool generics = false;
     for (int i = 0; i < info.argsList.size(); i++) {
-        if (!lst[i].canBeAppliedTo(info.argsList[i])) {
-            return false;
+        if (lst[i].getHash() != info.argsList[i].getHash()) {
+            same = false;
+        }
+        bool canUseGenerics = info.argsList[i].getHash() == TypeID::get<ReflMgr::Any>().getHash();
+        if (canUseGenerics) {
+            generics = true;
+        }
+        if (!lst[i].canBeAppliedTo(info.argsList[i]) && !canUseGenerics) {
+            std::cout << lst[i].getName() << " cannot apply to " << info.argsList[i].getName() << std::endl;
+            return;
         }
     }
-    return true;
+    if (same && !generics) {
+        rec[0] = &info;
+    } else if (!generics) {
+        rec[1] = &info;
+    } else {
+        rec[2] = &info;
+    }
 }
+
+template void ReflMgr::CheckParams(MethodInfo& info, const ArgsTypeList& lst, MethodInfo** rec);
+template void ReflMgr::CheckParams(MethodInfo const& info, const ArgsTypeList& lst, MethodInfo const** rec);
 
 const MethodInfo* ReflMgr::SafeGet(TypeID id, std::string_view name, const ArgsTypeList& args) {
     auto* lst = SafeGet(methodInfo, id, name);
     if (lst == nullptr) {
         return nullptr;
     }
+    const MethodInfo* rec[3] = { nullptr, nullptr, nullptr };
     for (const auto& info : *lst) {
-        if (CheckParams(info, args)) {
-            return &info;
+        CheckParams(info, args, rec);
+    }
+    for (int i = 0; i < 3; i++) {
+        if (rec[i] != nullptr) {
+            return rec[i];
         }
     }
     return nullptr;
@@ -86,7 +110,8 @@ template<typename Ret> Ret* ReflMgr::WalkThroughInherits(std::function<void*(voi
     std::queue<std::pair<TypeID, std::function<void*(void*)>>> q;
     q.push({id, *conv});
     while (!q.empty()) {
-        auto [type, convFunc] = q.front();
+        auto type = q.front().first;
+        auto convFunc = q.front().second;
         q.pop();
         auto* ret = func(type);
         if (ret != nullptr) {
@@ -239,6 +264,8 @@ void ReflMgr::AddVirtualInheritance(std::string_view cls, std::string_view inher
     });
 }
 
+static inline TagList nullTag;
+
 TagList& ReflMgr::GetClassTag(TypeID cls) {
     return classInfo[cls].tags;
 }
@@ -250,12 +277,16 @@ TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name) {
 }
 TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args) {
     auto& infos = methodInfo[cls][std::string{name}];
+    MethodInfo* rec[3] = { nullptr, nullptr, nullptr };
     for (auto& info : infos) {
-        if (CheckParams(info, args)) {
-            return info.tags;
+        CheckParams(info, args, rec);
+    }
+    for (int i = 0; i < 3; i++) {
+        if (rec[i] != nullptr) {
+            return rec[i]->tags;
         }
     }
-    return infos[0].tags;
+    return nullTag;
 }
 
 void ReflMgr::RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {

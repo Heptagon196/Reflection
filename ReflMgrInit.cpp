@@ -139,6 +139,7 @@ namespace ReflMgrTool {
         DEFVEC(int);
         DEFVEC(float);
         DEFVEC(std::string);
+        DEFVEC(ReflMgr::Any);
         AutoRegister<std::string::iterator>();
         DEFSINGLE(std::string, {
             return std::string(*self);
@@ -177,14 +178,16 @@ namespace ReflMgrTool {
         DEFMAP(type, float);                            \
         DEFMAP(type, std::string);                      \
         DEFMAP(type, SharedObject);                     \
-        DEFMAP(type, ObjectPtr)
+        DEFMAP(type, ObjectPtr);                        \
+        DEFMAP(type, ReflMgr::Any)
 
 #define DEFHASHMAP_FOR(type)                            \
         DEFHASHMAP(type, int);                          \
         DEFHASHMAP(type, float);                        \
         DEFHASHMAP(type, std::string);                  \
         DEFHASHMAP(type, SharedObject);                 \
-        DEFHASHMAP(type, ObjectPtr)
+        DEFHASHMAP(type, ObjectPtr);                    \
+        DEFHASHMAP(type, ReflMgr::Any)
 
         DEFMAP_FOR(int);
         DEFMAP_FOR(float);
