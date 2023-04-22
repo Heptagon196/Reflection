@@ -134,11 +134,13 @@ namespace ReflMgrTool {
             return (std::string)(ss.str());                             \
         }, tostring)                                                    \
 
+        /*
         DEFVEC(ObjectPtr);
         DEFVEC(SharedObject);
         DEFVEC(int);
         DEFVEC(float);
         DEFVEC(std::string);
+        */
         DEFVEC(ReflMgr::Any);
         AutoRegister<std::string::iterator>();
         DEFSINGLE(std::string, {
@@ -161,6 +163,8 @@ namespace ReflMgrTool {
             }, tostring)                                                        \
         } while (0)
 
+        DEFMAP(ReflMgr::Any, ReflMgr::Any);
+        /*
 #define DEFHASHMAP(key, value)                                                  \
         do {                                                                    \
             using type = std::unordered_map<key, value>;                        \
@@ -198,6 +202,7 @@ namespace ReflMgrTool {
         DEFHASHMAP_FOR(int);
         DEFHASHMAP_FOR(float);
         DEFHASHMAP_FOR(std::string);
+        */
 
 #undef DEFMAP_FOR
 #undef DEFMAP
