@@ -33,7 +33,14 @@ class TypeID {
 #elif defined(__GNUC__)
             return cutString(__PRETTY_FUNCTION__, 67, 50);
 #elif defined(_MSC_VER)
-            return cutString(__FUNCSIG__, 95, 7);
+            std::string_view ret = cutString(__FUNCSIG__, 95, 7);
+            if (ret.starts_with("struct ")) {
+                return ret.substr(7, ret.length() - 7);
+            }
+            if (ret.starts_with("class ")) {
+                return ret.substr(6, ret.length() - 6);
+            }
+            return ret;
 #endif
         }
         bool canImplicitlyConvertTo(const TypeID& other) const;
