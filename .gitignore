@@ -2,5 +2,6 @@ refl
 build
 out
 .vs
+.xmake
 *.out
 *.o

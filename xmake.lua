@@ -1,0 +1,5 @@
+set_languages("c++20")
+add_rules("mode.release")
+target("reflection")
+    set_kind("static")
+    add_files("*.cpp")
