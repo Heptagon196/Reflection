@@ -121,6 +121,7 @@ namespace ReflMgrTool {
         DEFINT(size_t);
         DEFINT(int64_t);
         DEFTYPE(float);
+        DEFTYPE(double);
         DEFTYPE(bool);
 
 #define DEFVEC(type) DEFVEC_BASE(std::vector<type>, type)

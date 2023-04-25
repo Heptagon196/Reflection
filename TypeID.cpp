@@ -5,10 +5,10 @@
 bool TypeID::canImplicitlyConvertTo(const TypeID& other) const {
     int cnt = 0;
     for (const auto& type : TypeID::implicitConvertList) {
-        if (type.hash == this->hash) {
+        if (type == this->hash) {
             cnt++;
         }
-        if (type.hash == other.hash) {
+        if (type == other.hash) {
             cnt++;
         }
     }
@@ -57,21 +57,21 @@ bool TypeID::operator < (const TypeID& other) const {
     DEF(orig, uint8_t), DEF(orig, uint16_t), DEF(orig, uint32_t), DEF(orig, uint64_t),  \
     DEF(orig, float), DEF(orig, double), DEF(orig, long double)
 
-#define DEF(t) TypeID::get<t>()
+#define DEF(t) TypeID::get<t>().getHash()
 
-const std::vector<TypeID> TypeID::implicitConvertList = {
+const std::vector<size_t> TypeID::implicitConvertList = {
     DEFLIST(DEF)
 };
 
 #undef DEF
 
 #define DEF_SINGLE(orig, target) \
-    { TypeID::get<target>(), std::function([](void* instance) -> std::shared_ptr<void> { return std::make_shared<target>(*(orig*)instance); }) }
+    { TypeID::get<target>().getHash(), std::function([](void* instance) -> std::shared_ptr<void> { return std::make_shared<target>(*(orig*)instance); }) }
 
 #define DEF(type) \
-    { TypeID::get<type>(), { DEFLIST2(type, DEF_SINGLE) }}
+    { TypeID::get<type>().getHash(), { DEFLIST2(type, DEF_SINGLE) }}
 
-static const std::unordered_map<TypeID, std::unordered_map<TypeID, std::function<std::shared_ptr<void>(void*)>>> convertFunc = {
+static const std::unordered_map<size_t, std::unordered_map<size_t, std::function<std::shared_ptr<void>(void*)>>> convertFunc = {
     DEFLIST(DEF)
 };
 
@@ -79,7 +79,7 @@ static const std::unordered_map<TypeID, std::unordered_map<TypeID, std::function
 #undef DEF
 
 std::shared_ptr<void> TypeID::implicitConvertInstance(void* instance, TypeID target) {
-    return (convertFunc.at(*this).at(target))(instance);
+    return (convertFunc.at(getHash()).at(target.getHash()))(instance);
 }
 
 size_t std::hash<TypeID>::operator() (const TypeID& id) const {

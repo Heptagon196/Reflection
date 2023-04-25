@@ -13,7 +13,7 @@ class TypeID {
         std::string_view name;
         bool is_ref;
         bool is_const;
-        static const std::vector<TypeID> implicitConvertList;
+        static const std::vector<size_t> implicitConvertList;
         static constexpr size_t calculateHash(std::string_view s) {
             size_t hash = sizeof(size_t) == 8 ? 0xcbf29ce484222325 : 0x811c9dc5;
             const size_t prime = sizeof(size_t) == 8 ? 0x00000100000001b3 : 0x01000193;
