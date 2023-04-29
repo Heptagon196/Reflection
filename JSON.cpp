@@ -324,6 +324,23 @@ std::ostream& operator << (std::ostream& out, const JSON& obj) {
     return out;
 }
 
+int JSON::VecSize() {
+    return obj.As<std::vector<JSON>>().size();
+}
+
+int JSON::MapSize() {
+    return obj.As<std::unordered_map<std::string, JSON>>().size();
+}
+
+bool JSON::HasKey(const std::string& idx) {
+    auto& m = obj.As<std::unordered_map<std::string, JSON>>();
+    return m.find(idx) != m.end();
+}
+
+bool JSON::HasKey(int idx) {
+    return idx < obj.As<std::vector<JSON>>().size() && idx > 0;
+}
+
 JSON& JSON::operator[] (std::string_view idx) {
     return obj.As<std::unordered_map<std::string, JSON>>()[(std::string)idx];
 }
@@ -354,6 +371,22 @@ void JSON::AddItem(JSON item) {
 void JSON::AddItem(std::string key, JSON item) {
     obj.As<std::unordered_map<std::string, JSON>>()[key] = item;
 }
+
+void JSON::Foreach(std::function<void(std::string_view key, JSON& item)> call) {
+    auto& m = obj.As<std::unordered_map<std::string, JSON>>();
+    for (auto& p : m) {
+        call(p.first, p.second);
+    }
+}
+
+void JSON::Foreach(std::function<void(int idx, JSON& item)> call) {
+    auto& m = obj.As<std::vector<JSON>>();
+    for (int idx = 0; idx < m.size(); idx++) {
+        call(idx, m[idx]);
+    }
+}
+
+void Foreach(std::function<void(int idx, JSON& item)> call);
 
 void JSON::RemoveItem(int pos) {
     auto& vec = obj.As<std::vector<JSON>>();
