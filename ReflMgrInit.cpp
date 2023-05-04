@@ -143,6 +143,7 @@ namespace ReflMgrTool {
         DEFVEC(std::string);
         */
         DEFVEC(ReflMgr::Any);
+        AutoRegister<std::string>();
         AutoRegister<std::string::iterator>();
         DEFSINGLE(std::string, {
             return std::string(*self);

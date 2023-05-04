@@ -1,5 +1,7 @@
 #include "ReflMgr.h"
 
+ReflMgr::Any::Any(ObjectPtr obj) : ObjectPtr(obj) {}
+
 FieldInfo& FieldInfo::withRegister(std::function<ObjectPtr(void*)> getRegister) {
     this->getRegister = getRegister;
     return *this;
@@ -303,14 +305,18 @@ TagList& ReflMgr::GetMethodInfo(TypeID cls, std::string_view name, const ArgsTyp
     return nullTag;
 }
 
-void ReflMgr::RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
+void ReflMgr::RawAddField(TypeID cls, TypeID varType, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func) {
     FieldInfo info{ std::string{name} };
-    fieldInfo[cls][std::string{name}] = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
+    auto& field = fieldInfo[cls][std::string{name}];
+    field = info.withRegister([func, cls](void* ptr) { return func(ObjectPtr{cls, ptr}); });
+    field.varType = varType;
 }
 
-void ReflMgr::RawAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func) {
+void ReflMgr::RawAddStaticField(TypeID cls, TypeID varType, std::string_view name, std::function<ObjectPtr()> func) {
     FieldInfo info{ std::string{name} };
-    fieldInfo[cls][std::string{name}] = info.withRegister([func](void* ptr) { return func(); });
+    auto& field = fieldInfo[cls][std::string{name}];
+    field = info.withRegister([func](void* ptr) { return func(); });
+    field.varType = varType;
 }
 
 ObjectPtr ReflMgr::RawGetField(ObjectPtr instance, std::string_view name) {
@@ -369,4 +375,36 @@ void ReflMgr::SelfExport() {
     mgr.AddMethod(MethodType<SharedObject, ReflMgr, ObjectPtr, std::string_view, const std::vector<ObjectPtr>&>::Type(&ReflMgr::RawInvoke), "Invoke");
     mgr.AddMethod(&ReflMgr::RawAddStaticMethod, "AddStaticMethod");
     mgr.AddMethod(&ReflMgr::RawInvokeStatic, "InvokeStatic");
+}
+
+void ReflMgr::IterateField(TypeID cls, std::function<void(const FieldInfo&)> callback) {
+    std::function<void*(void*)> conv = [](void* orig) { return orig; };
+    cls = GetType(cls.getName());
+    WalkThroughInherits(&conv, cls, std::function([&](TypeID type) -> FieldInfo* {
+        auto* lst = SafeGetList(fieldInfo, cls);
+        if (lst == nullptr) {
+            return nullptr;
+        }
+        for (auto& field : *lst) {
+            callback(field.second);
+        }
+        return nullptr;
+    }));
+}
+
+void ReflMgr::IterateMethod(TypeID cls, std::function<void(const MethodInfo&)> callback) {
+    std::function<void*(void*)> conv = [](void* orig) { return orig; };
+    cls = GetType(cls.getName());
+    WalkThroughInherits(&conv, cls, std::function([&](TypeID type) -> MethodInfo* {
+        auto* lst = SafeGetList(methodInfo, cls);
+        if (lst == nullptr) {
+            return nullptr;
+        }
+        for (auto& method : *lst) {
+            for (auto& overloads : method.second) {
+                callback(overloads);
+            }
+        }
+        return nullptr;
+    }));
 }

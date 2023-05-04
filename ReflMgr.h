@@ -12,6 +12,7 @@ using TagList = std::unordered_map<std::string, std::vector<std::string>>;
 struct FieldInfo {
     std::string name;
     TagList tags;
+    TypeID varType;
     std::function<ObjectPtr(void*)> getRegister;
     FieldInfo& withRegister(std::function<ObjectPtr(void*)> getRegister);
 };
@@ -51,7 +52,10 @@ struct ClassInfo {
 
 class ReflMgr {
     public:
-        struct Any : ObjectPtr {};
+        struct Any : ObjectPtr {
+            using ObjectPtr::ObjectPtr;
+            Any(ObjectPtr);
+        };
     private:
         ReflMgr() {}
         std::string errorMsgPrefix;
@@ -89,7 +93,9 @@ class ReflMgr {
         }
         template<typename T, typename U>
         void AddField(U T::* type, FieldInfo info) {
-            fieldInfo[TypeID::get<T>()][info.name] = info.withRegister(GetFieldRegisterFunc(type));
+            auto& field = fieldInfo[TypeID::get<T>()][info.name];
+            field = info.withRegister(GetFieldRegisterFunc(type));
+            field.varType = TypeID::get<U>();
         }
         template<typename T, typename U>
         void AddField(U T::* type, std::string_view name) {
@@ -107,9 +113,11 @@ class ReflMgr {
         }
         template<typename T>
         void AddStaticField(TypeID type, T* ptr, FieldInfo info) {
-            fieldInfo[type][std::string{info.name}] = info.withRegister([ptr](void*) -> SharedObject {
+            auto& field = fieldInfo[type][std::string{info.name}];
+            field = info.withRegister([ptr](void*) -> SharedObject {
                 return SharedObject{ TypeID::get<T>(), (void*)ptr };
             });
+            field.varType = TypeID::get<T>();
         }
         template<typename T>
         void AddStaticField(TypeID type, T* ptr, std::string_view name) {
@@ -366,6 +374,9 @@ class ReflMgr {
             std::vector<std::shared_ptr<void>> temp;
             auto ret = info->newRet();
             info->getRegister(ptr, ConvertParams(params, *info, temp), ret);
+            if (ret.GetType().getHash() == TypeID::get<Any>().getHash()) {
+                return ret.template As<Any>().ToSharedPtr();
+            }
             return ret;
         }
         template<typename T = ObjectPtr>
@@ -382,6 +393,9 @@ class ReflMgr {
             std::vector<std::shared_ptr<void>> temp;
             auto ret = info->newRet();
             info->getRegister(nullptr, ConvertParams(params, *info, temp), ret);
+            if (ret.GetType().getHash() == TypeID::get<Any>().getHash()) {
+                return ret.template As<Any>().ToSharedPtr();
+            }
             return ret;
         }
         template<typename D, typename B>
@@ -415,8 +429,11 @@ class ReflMgr {
         TagList& GetMethodInfo(TypeID cls, std::string_view name);
         TagList& GetMethodInfo(TypeID cls, std::string_view name, const ArgsTypeList& args);
     public:
-        void RawAddField(TypeID cls, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
-        void RawAddStaticField(TypeID cls, std::string_view name, std::function<ObjectPtr()> func);
+        void IterateField(TypeID cls, std::function<void(const FieldInfo&)> callback);
+        void IterateMethod(TypeID cls, std::function<void(const MethodInfo&)> callback);
+    public:
+        void RawAddField(TypeID cls, TypeID varType, std::string_view name, std::function<ObjectPtr(ObjectPtr)> func);
+        void RawAddStaticField(TypeID cls, TypeID varType, std::string_view name, std::function<ObjectPtr()> func);
         ObjectPtr RawGetField(ObjectPtr instance, std::string_view name);
         void RawAddMethod(TypeID cls, std::string_view name, TypeID returnType, const ArgsTypeList& argsList, std::function<SharedObject(ObjectPtr, const std::vector<ObjectPtr>&)> func);
         SharedObject RawInvoke(ObjectPtr instance, std::string_view name, const std::vector<ObjectPtr>& params);
