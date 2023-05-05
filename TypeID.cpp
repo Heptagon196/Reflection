@@ -16,7 +16,7 @@ bool TypeID::canImplicitlyConvertTo(const TypeID& other) const {
 }
 
 bool TypeID::checkRefAndConst(const TypeID& other) const {
-    return (is_ref == other.is_ref && is_const == other.is_const) || other.is_const || (other.is_ref && !is_const) || is_ref;
+    return other.is_const || (other.is_ref && !is_const) || is_ref || !other.is_ref;
 }
 
 bool TypeID::isNull() const {
