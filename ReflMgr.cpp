@@ -408,3 +408,19 @@ void ReflMgr::IterateMethod(TypeID cls, std::function<void(const MethodInfo&)> c
         return nullptr;
     }));
 }
+
+bool ReflMgr::IsBaseClass(TypeID query, TypeID base) {
+    std::queue<TypeID> q;
+    q.push(query);
+    while (!q.empty()) {
+        if (q.front() == base) {
+            return true;
+        }
+        auto& info = classInfo[q.front()];
+        q.pop();
+        for (auto& id : info.parents) {
+            q.push(id);
+        }
+    }
+    return false;
+}

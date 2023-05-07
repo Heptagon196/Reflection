@@ -411,6 +411,7 @@ class ReflMgr {
             SetInheritance<D, B>();
             SetInheritance<D, R, Args...>();
         }
+        bool IsBaseClass(TypeID query, TypeID base);
         template<typename T>
         void AddClass(TagList tagList = {}) {
             auto type = TypeID::get<T>();
